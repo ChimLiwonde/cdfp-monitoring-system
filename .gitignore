@@ -1,0 +1,13 @@
+/config/db.php
+/config/mail.php
+/database/*.sql
+/uploads/*
+!/uploads/.gitkeep
+
+# Environment-specific files
+.env
+.env.*
+
+# OS/editor noise
+Thumbs.db
+Desktop.ini

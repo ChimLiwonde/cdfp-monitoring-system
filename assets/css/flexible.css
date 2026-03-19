@@ -1,0 +1,633 @@
+*{
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+body{
+    background: linear-gradient(120deg, #e3f2fd, #bbdefb);
+    min-height: 100vh;
+}
+
+/* GRID SYSTEM */
+.row::after{
+    content:"";
+    clear:both;
+    display:block;   
+}
+
+[class*="col-"]{
+    float:left;
+    padding:15px;
+}
+
+/* Mobile default */
+[class*="col-"]{
+    width:100%;
+}
+
+/* Desktop */
+@media only screen and (min-width:800px){
+    .col-1 {width: 8.33%;}
+    .col-2 {width: 16.66%;}
+    .col-3 {width: 25%;}
+    .col-4 {width: 33.33%;}
+    .col-5 {width: 41.66%;}
+    .col-6 {width: 50%;}
+    .col-7 {width: 58.33%;}
+    .col-8 {width: 66.66%;}
+    .col-9 {width: 75%;}
+    .col-10 {width: 83.33%;}
+    .col-11 {width: 91.66%;}
+    .col-12 {width: 100%;}
+}
+
+/* HEADER */
+header{
+    text-align: center;
+    background: #1565c0;
+    color: white;
+    padding: 25px 10px;
+    font-size: 22px;
+    border-radius: 0 0 15px 15px;
+}
+
+header img{
+    height: 60px;
+    margin-bottom: 10px;
+}
+
+/* FORM CARD */
+.form-card {
+    background: white;
+    padding: 30px 25px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+    margin-top: 30px;
+}
+
+/* HEADINGS */
+h3{
+    text-align: center;
+    margin-bottom: 20px;
+    color: #0d47a1;
+}
+
+/* INPUT FIELDS */
+input{
+    width:100%;
+    padding:12px;
+    margin-top: 8px;
+    margin-bottom: 15px;
+    border: 1px solid #90caf9;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: 0.2s ease-in-out;
+}
+
+input:focus{
+    outline: none;
+    border-color: #1565c0;
+}
+
+/* BUTTON */
+input[type="submit"]{
+    background: linear-gradient(to right, #1e88e5, #1565c0);
+    color:white;
+    padding:14px;
+    font-size: 16px;
+    font-weight: bold;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+input[type="submit"]:hover{
+    background: linear-gradient(to right, #1565c0, #0d47a1);
+    transform: scale(1.02);
+}
+
+/* LINKS */
+a{
+    color: #1565c0;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+a:hover{
+    text-decoration: underline;
+}
+
+/* MESSAGE */
+.msg{
+    background: #e3f2fd;
+    padding: 12px;
+    border-left: 5px solid #1565c0;
+    margin-bottom: 15px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+select {
+    width: 100%;
+    padding: 12px;
+    margin-top: 8px;
+    margin-bottom: 15px;
+    border: 1px solid #90caf9;
+    border-radius: 8px;
+    font-size: 15px;
+}
+
+header img{
+    height: 60px;
+    border-radius: 50%;  
+    object-fit: cover;
+}
+
+/* =============================
+   DASHBOARD MENU
+============================= */
+.menu-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.menu-list li {
+    margin-bottom: 10px;
+}
+
+.menu-list a {
+    display: block;
+    padding: 12px 15px;
+    background: #e3f2fd;
+    border-radius: 10px;
+    font-weight: 600;
+    transition: 0.2s;
+    text-decoration-line: none;
+}
+
+.menu-list a:hover {
+    background: #bbdefb;
+    transform: translateX(3px);
+}
+
+/* =============================
+   DASHBOARD TABLE
+============================= */
+.table-wrap {
+    overflow-x: auto;
+}
+
+.dashboard-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.dashboard-table th {
+    background: #1565c0;
+    color: white;
+    text-align: left;
+    padding: 12px;
+    font-size: 14px;
+}
+
+.dashboard-table td {
+    background: white;
+    padding: 12px;
+    font-size: 14px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.status-pending {
+    color: #f57c00;
+    font-weight: bold;
+}
+
+.status-approved {
+    color: #2e7d32;
+    font-weight: bold;
+}
+
+/* =============================
+   DASHBOARD FOOTER
+============================= */
+/* flexible.css */
+.dashboard-footer {
+    text-align: center;       /* center the text */
+    padding: 15px 20px;       /* vertical and horizontal padding */
+    font-size: 14px;          /* font size */
+    color: #fff;              /* text color */
+    background-color: #1565c0; /* footer background */
+    border-radius: 0 0 15px 15px;
+    border-top: 1px solid #ccc; /* optional top border for separation */
+}
+
+/* =============================
+   BACK BUTTON STYLE
+============================= */
+.back-btn {
+    display: inline-block;
+    padding: 12px 22px;
+    margin-top: 20px;
+    background: linear-gradient(to right, #1565c0, #0d47a1);
+    color: white !important;
+    border-radius: 10px;
+    font-weight: bold;
+    font-size: 15px;
+    text-decoration: none;
+    transition: 0.2s ease-in-out;
+}
+
+.back-btn:hover {
+    background: linear-gradient(to right, #0d47a1, #002171);
+    transform: scale(1.03);
+    text-decoration: none;
+}
+
+.status-approved {
+    color: #2e7d32;
+    font-weight: bold;
+}
+
+.status-pending {
+    color: #f57c00;
+    font-weight: bold;
+}
+
+.status-denied {
+    color: #c62828;
+    font-weight: bold;
+}
+.status-info {
+    color: #0288d1;
+    font-weight: bold;
+}
+
+.status-completed {
+    color: #1565c0;
+    font-weight: bold;
+}
+
+/* =============================
+   PUBLIC DASHBOARD ONLY
+   (Namespaced & Safe)
+============================= */
+
+.public-dashboard .public-project-card {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.08);
+    transition: 0.25s ease-in-out;
+}
+
+.public-dashboard .public-project-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 18px 40px rgba(0,0,0,0.12);
+}
+
+/* TITLE */
+.public-dashboard .public-project-card h3 {
+    color: #0d47a1;
+    margin-bottom: 10px;
+    font-size: 20px;
+}
+
+/* DESCRIPTION */
+.public-dashboard .public-project-card p {
+    font-size: 15px;
+    line-height: 1.6;
+    color: #444;
+}
+
+/* STATUS BADGES */
+.public-dashboard .public-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    font-size: 13px;
+    border-radius: 20px;
+    font-weight: 600;
+}
+
+.public-dashboard .public-badge.pending {
+    background: #fff3cd;
+    color: #f57c00;
+}
+
+.public-dashboard .public-badge.approved {
+    background: #e8f5e9;
+    color: #2e7d32;
+}
+
+.public-dashboard .public-badge.denied {
+    background: #fdecea;
+    color: #c62828;
+}
+
+.public-dashboard .public-badge.completed {
+    background: #e3f2fd;
+    color: #1565c0;
+}
+
+/* MAP */
+.public-dashboard .public-map {
+    height: 260px;
+    border-radius: 12px;
+    margin-top: 15px;
+    border: 1px solid #e0e0e0;
+}
+
+/* COMMENTS */
+.public-dashboard .public-comment {
+    background: #f9f9f9;
+    padding: 14px;
+    margin-top: 12px;
+    border-radius: 10px;
+    font-size: 14px;
+}
+
+.public-dashboard .public-comment strong {
+    color: #1565c0;
+}
+
+/* ADMIN REPLY */
+.public-dashboard .public-reply {
+    background: #e3f2fd;
+    padding: 12px;
+    margin-top: 8px;
+    border-left: 4px solid #1565c0;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+/* COMMENT TEXTAREA */
+.public-dashboard textarea {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #90caf9;
+    font-size: 14px;
+}
+
+.public-dashboard textarea:focus {
+    outline: none;
+    border-color: #1565c0;
+}
+
+/* =============================
+   PUBLIC MENU ONLY
+============================= */
+
+.public-menu {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.07);
+}
+
+.public-menu h3 {
+    text-align: center;
+    color: #0d47a1;
+    margin-bottom: 15px;
+}
+
+.public-menu .menu-list a {
+    display: block;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: linear-gradient(to right, #e3f2fd, #bbdefb);
+    font-weight: 600;
+    color: #0d47a1;
+    transition: 0.25s;
+}
+
+.public-menu .menu-list a:hover {
+    background: linear-gradient(to right, #1565c0, #0d47a1);
+    color: #fff;
+    transform: translateX(5px);
+}
+
+/* ===================== EMOJI REACTIONS ===================== */
+.emoji-btn {
+    border: none;
+    background: transparent;
+    font-size: 20px;
+    cursor: pointer;
+    margin-right: 5px;
+}
+.emoji-btn.reacted {
+    transform: scale(1.3);
+    transition: transform 0.2s;
+}
+.emoji-reactions {
+    margin-top: 5px;
+}
+.emoji-count {
+    font-size: 14px;
+    margin-left: 2px;
+}
+.public-comment {
+    background: #f9f9f9;
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+.public-reply {
+    margin-top: 5px;
+    padding-left: 15px;
+    font-style: italic;
+    color: #555;
+}
+
+/* ===============================
+   PUBLIC COMMUNITY REQUESTS
+=============================== */
+
+.public-dashboard .form-card {
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Headings */
+.public-dashboard h3 {
+    margin-bottom: 15px;
+    color: #0c90b4;
+}
+
+/* Success message */
+.public-dashboard .msg {
+    background: #e8f8ee;
+    color: #1e7e34;
+    padding: 10px 15px;
+    border-left: 4px solid #28a745;
+    border-radius: 4px;
+    margin-bottom: 15px;
+}
+
+/* Form inputs */
+.public-dashboard input[type="text"],
+.public-dashboard textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+    margin-top: 5px;
+}
+
+.public-dashboard textarea {
+    min-height: 120px;
+    resize: vertical;
+}
+
+/* Submit button */
+.public-dashboard input[type="submit"] {
+    background: #0c90b4;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.public-dashboard input[type="submit"]:hover {
+    background: #086d86;
+}
+
+/* Submitted requests list */
+.public-dashboard .public-comment {
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #0c90b4;
+    margin-bottom: 12px;
+}
+
+.public-dashboard .public-comment strong {
+    font-size: 15px;
+    color: #333;
+}
+
+.public-dashboard .public-comment small {
+    display: block;
+    margin-top: 8px;
+    color: #777;
+    font-style: italic;
+}
+
+/* ===============================
+   PUBLIC MENU STYLING
+================================ */
+
+.public-menu {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+}
+
+/* Title */
+.public-menu h3 {
+    text-align: center;
+    font-size: 18px;
+    color: #0c90b4;
+    margin-bottom: 18px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #0c90b4;
+}
+
+/* Menu list */
+.public-menu ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+/* Menu items */
+.public-menu ul li {
+    margin-bottom: 12px;
+}
+
+/* Links */
+.public-menu ul li a {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 14px;
+    background: #f1f5f9;
+    color: #333;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.25s ease;
+}
+
+/* Hover */
+.public-menu ul li a:hover {
+    background: #0c90b4;
+    color: #fff;
+    transform: translateX(6px);
+}
+
+/* Logout styling */
+.public-menu ul li a[href*="logout"] {
+    background: #ffe5e5;
+    color: #b00020;
+}
+
+.public-menu ul li a[href*="logout"]:hover {
+    background: #b00020;
+    color: #fff;
+}
+
+/* ===== CHAT UI ===== */
+.public-dashboard .chat-box {
+    max-width: 600px;
+    margin: auto;
+}
+
+.public-dashboard .chat-project {
+    background: #f1f1f1;
+    padding: 8px 12px;
+    margin: 15px 0;
+    font-weight: bold;
+    border-radius: 8px;
+}
+
+.public-dashboard .masg {
+    padding: 10px 14px;
+    border-radius: 16px;
+    margin: 8px 0;
+    max-width: 75%;
+    clear: both;
+    font-size: 14px;
+}
+
+/* User message */
+.public-dashboard .masg-user {
+    background: #0c90b4;
+    color: #fff;
+    float: right;
+    border-bottom-right-radius: 2px;
+}
+
+/* Admin message */
+.public-dashboard .masg-admin {
+    background: #e5e5e5;
+    float: left;
+    border-bottom-left-radius: 2px;
+}
+
+.public-dashboard .masg-time {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 4px;
+}

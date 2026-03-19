@@ -1,0 +1,119 @@
+<?php
+session_start();
+require "../config/db.php";
+
+$message = "";
+
+/* ============================
+   HARD-CODED DEFAULT ADMIN
+============================ */
+$default_admin_user = "admin";
+$default_admin_pass = "admin123";
+
+if (isset($_POST['login'])) {
+
+    $username = trim($_POST['user_name']);
+    $password = trim($_POST['user_password']);
+
+    /* ============================
+       DEFAULT ADMIN LOGIN
+    ============================ */
+    if ($username === $default_admin_user && $password === $default_admin_pass) {
+
+        $_SESSION['user_id']  = 0; // not in DB
+        $_SESSION['username'] = "Administrator";
+        $_SESSION['role']     = "admin";
+
+        header("Location: ../dashboards/admin.php");
+        exit();
+    }
+
+    /* ============================
+       DATABASE USERS LOGIN
+    ============================ */
+    $stmt = $conn->prepare("
+        SELECT id, username, password, role 
+        FROM users 
+        WHERE username = ?
+        LIMIT 1
+    ");
+    $stmt->bind_param("s", $username);
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    if ($user = $result->fetch_assoc()) {
+
+        if (password_verify($password, $user['password'])) {
+
+            $_SESSION['user_id']  = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role']     = $user['role'];
+
+            /* ============================
+               ROLE REDIRECTION
+            ============================ */
+            if ($user['role'] === 'admin') {
+                header("Location: ../dashboards/admin.php");
+            } elseif ($user['role'] === 'field_officer') {
+                header("Location: ../dashboards/field_officer.php");
+            } else {
+                header("Location: ../dashboards/public.php");
+            }
+            exit();
+
+        } else {
+            $message = "Invalid password";
+        }
+
+    } else {
+        $message = "User not found";
+    }
+}
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CDF Monitoring System | Login</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="../assets/css/flexible.css">
+</head>
+<body>
+
+<div class="row">
+    <header class="col-12">
+        <img src="../assets/img/logo.jpg" alt="CDF Logo">
+        <h1>CDF Monitoring System</h1>
+    </header>
+</div>
+
+<div class="row">
+    <div class="col-4"></div>
+
+    <div class="col-4">
+        <div class="form-card">
+
+            <h3>Login</h3>
+
+            <?php if ($message): ?>
+                <div class="msg"><?= $message ?></div>
+            <?php endif; ?>
+
+            <form method="POST">
+                <label>Username</label>
+                <input type="text" name="user_name" required>
+
+                <label>Password</label>
+                <input type="password" name="user_password" required>
+
+                <input type="submit" name="login" value="Login">
+            </form>
+              <br>
+            <a href="create_account.php">Create Account</a>
+        </div>
+    </div>
+
+    <div class="col-4"></div>
+</div>
+
+</body>
+</html>
