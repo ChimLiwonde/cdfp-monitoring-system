@@ -66,6 +66,54 @@ VALUES
 (@approved_project_id, 'Site Preparation', '2026-03-01', '2026-03-10', '2026-03-02', '2026-03-09', 1025000.00, 890000.00, 'completed', 'Completed within planned budget.'),
 (@approved_project_id, 'Drilling and Pump Installation', '2026-03-11', '2026-03-25', '2026-03-12', NULL, 1025000.00, 540000.00, 'in_progress', 'Work is progressing well.');
 
+SET @site_stage_id = (
+    SELECT id
+    FROM project_stages
+    WHERE project_id = @approved_project_id AND stage_name = 'Site Preparation'
+    ORDER BY id DESC
+    LIMIT 1
+);
+
+SET @drilling_stage_id = (
+    SELECT id
+    FROM project_stages
+    WHERE project_id = @approved_project_id AND stage_name = 'Drilling and Pump Installation'
+    ORDER BY id DESC
+    LIMIT 1
+);
+
+INSERT INTO project_team_members (project_id, full_name, role_title, contact_info, created_by)
+VALUES
+(@approved_project_id, 'Grace Banda', 'Site Supervisor', '0888 100 200', @field_officer_id),
+(@approved_project_id, 'Peter Mbewe', 'Procurement Officer', '0999 300 400', @field_officer_id);
+
+SET @grace_member_id = (
+    SELECT id
+    FROM project_team_members
+    WHERE project_id = @approved_project_id AND full_name = 'Grace Banda'
+    ORDER BY id DESC
+    LIMIT 1
+);
+
+SET @peter_member_id = (
+    SELECT id
+    FROM project_team_members
+    WHERE project_id = @approved_project_id AND full_name = 'Peter Mbewe'
+    ORDER BY id DESC
+    LIMIT 1
+);
+
+INSERT INTO project_stage_assignments (stage_id, team_member_id, assigned_by, assignment_notes)
+VALUES
+(@site_stage_id, @grace_member_id, @field_officer_id, 'Coordinate early site works and daily progress updates.'),
+(@drilling_stage_id, @peter_member_id, @field_officer_id, 'Manage supplier follow-ups and borehole equipment delivery.');
+
+INSERT INTO project_expenses (project_id, stage_id, expense_title, category, vendor_name, amount, expense_date, notes, recorded_by)
+VALUES
+(@approved_project_id, @site_stage_id, 'Site clearing materials', 'Materials', 'BuildRight Supplies', 540000.00, '2026-03-04', 'Materials purchased for preparing the site.', @field_officer_id),
+(@approved_project_id, @site_stage_id, 'Site preparation labour', 'Labour', 'Community Labour Group', 350000.00, '2026-03-06', 'Labour costs for the first completed status item.', @field_officer_id),
+(@approved_project_id, @drilling_stage_id, 'Initial drilling mobilisation', 'Equipment', 'AquaTech Drillers', 540000.00, '2026-03-15', 'Mobilisation and drilling setup costs.', @field_officer_id);
+
 INSERT INTO project_comments (project_id, user_id, comment, admin_reply, replied_at)
 VALUES
 (@approved_project_id, @public_user_id, 'We are happy to see this project progressing.', 'Thank you. Progress updates will continue to be shared here.', NOW());
@@ -80,6 +128,11 @@ VALUES
 (@approved_project_id, 'project_created', @field_officer_id, 'field_officer', NULL, 'pending', 'Project created and submitted for admin review.'),
 (@approved_project_id, 'project_status_changed', @admin_user_id, 'admin', 'pending', 'approved', 'Approved by admin during demo setup.'),
 (@approved_project_id, 'status_item_added', @field_officer_id, 'field_officer', NULL, 'pending', 'Initial project status items added.'),
+(@approved_project_id, 'team_member_added', @field_officer_id, 'field_officer', NULL, NULL, 'Grace Banda added to the project team.'),
+(@approved_project_id, 'team_member_added', @field_officer_id, 'field_officer', NULL, NULL, 'Peter Mbewe added to the project team.'),
+(@approved_project_id, 'task_assigned', @field_officer_id, 'field_officer', NULL, NULL, 'Site Preparation assigned to Grace Banda.'),
+(@approved_project_id, 'task_assigned', @field_officer_id, 'field_officer', NULL, NULL, 'Drilling and Pump Installation assigned to Peter Mbewe.'),
+(@approved_project_id, 'expense_recorded', @field_officer_id, 'field_officer', NULL, NULL, 'Initial expenses recorded for approved project status items.'),
 (@approved_project_id, 'stage_status_changed', @field_officer_id, 'field_officer', 'pending', 'completed', 'Site Preparation marked completed.'),
 (@approved_project_id, 'stage_status_changed', @field_officer_id, 'field_officer', 'pending', 'in_progress', 'Drilling and Pump Installation started.'),
 (@denied_project_id, 'project_created', @field_officer_id, 'field_officer', NULL, 'pending', 'Project created and submitted for admin review.'),

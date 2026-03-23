@@ -12,7 +12,9 @@ Included helper scripts:
 
 1. `add_project_activity_log.sql`
    Adds the workflow history table used to show project approval and status changes.
-2. `reset_demo_data.sql`
+2. `add_finance_and_task_tables.sql`
+   Adds the expenditure ledger, project team members, and task-assignment tables used by the finance and task planning pages.
+3. `reset_demo_data.sql`
    Resets projects, project status items, comments, requests, maps, contractors, and activity history back to zero while keeping users.
-3. `seed_supervisor_demo.sql`
+4. `seed_supervisor_demo.sql`
    Loads a small demo dataset for supervisor review after a clean reset.

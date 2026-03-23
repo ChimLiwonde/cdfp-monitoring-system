@@ -110,6 +110,39 @@ $contractor_status = $conn->query("
     WHERE cp.assigned_by = $user_id
 ");
 
+$budget_watchlist = $conn->query("
+    SELECT
+        p.id,
+        p.title,
+        (p.estimated_budget + p.contractor_fee) AS total_budget,
+        COALESCE(SUM(pe.amount), 0) AS total_spent
+    FROM projects p
+    LEFT JOIN project_expenses pe ON pe.project_id = p.id
+    WHERE p.created_by = $user_id
+      AND p.status IN ('approved', 'in_progress', 'completed')
+    GROUP BY p.id, p.title, p.estimated_budget, p.contractor_fee
+    ORDER BY p.created_at DESC
+");
+
+$resource_allocation = $conn->query("
+    SELECT
+        p.id,
+        p.title,
+        COUNT(DISTINCT ptm.id) AS team_members,
+        COUNT(DISTINCT psa.id) AS assigned_tasks,
+        COUNT(DISTINCT c.id) AS contractors
+    FROM projects p
+    LEFT JOIN project_team_members ptm ON ptm.project_id = p.id
+    LEFT JOIN project_stages ps ON ps.project_id = p.id
+    LEFT JOIN project_stage_assignments psa ON psa.stage_id = ps.id
+    LEFT JOIN contractor_projects cp ON cp.project_id = p.id
+    LEFT JOIN contractors c ON c.id = cp.contractor_id
+    WHERE p.created_by = $user_id
+      AND p.status IN ('approved', 'in_progress', 'completed')
+    GROUP BY p.id, p.title
+    ORDER BY p.created_at DESC
+");
+
 $success_message = $_SESSION['success_message'] ?? '';
 unset($_SESSION['success_message']);
 ?>
@@ -199,8 +232,75 @@ foreach ($cards as $t => $v):
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
-            </div>
-        </div>
+</div>
+</div>
+
+<div class="row">
+<div class="col-6">
+<div class="form-card">
+<h3>Budget Watchlist</h3>
+<table class="dashboard-table">
+<tr>
+<th>Project ID</th>
+<th>Project</th>
+<th>Spent vs Budget</th>
+<th>Status</th>
+</tr>
+<?php if ($budget_watchlist->num_rows === 0): ?>
+<tr>
+<td colspan="4" style="text-align:center;color:gray;">No active project budgets to monitor yet.</td>
+</tr>
+<?php endif; ?>
+<?php while ($budget_row = $budget_watchlist->fetch_assoc()): ?>
+<?php
+$remaining_budget = (float) $budget_row['total_budget'] - (float) $budget_row['total_spent'];
+$budget_state = $remaining_budget < 0 ? 'Over budget' : 'Within budget';
+?>
+<tr>
+<td><?= formatProjectCode($budget_row['id']) ?></td>
+<td><?= htmlspecialchars($budget_row['title']) ?></td>
+<td>
+Spent: MWK <?= number_format((float) $budget_row['total_spent'], 2) ?><br>
+Budget: MWK <?= number_format((float) $budget_row['total_budget'], 2) ?>
+</td>
+<td style="color:<?= $remaining_budget < 0 ? '#d32f2f' : '#2e7d32' ?>;">
+<?= $budget_state ?>
+</td>
+</tr>
+<?php endwhile; ?>
+</table>
+</div>
+</div>
+
+<div class="col-6">
+<div class="form-card">
+<h3>Resource Allocation</h3>
+<table class="dashboard-table">
+<tr>
+<th>Project ID</th>
+<th>Project</th>
+<th>Team Members</th>
+<th>Assigned Tasks</th>
+<th>Contractors</th>
+</tr>
+<?php if ($resource_allocation->num_rows === 0): ?>
+<tr>
+<td colspan="5" style="text-align:center;color:gray;">No project resources allocated yet.</td>
+</tr>
+<?php endif; ?>
+<?php while ($resource_row = $resource_allocation->fetch_assoc()): ?>
+<tr>
+<td><?= formatProjectCode($resource_row['id']) ?></td>
+<td><?= htmlspecialchars($resource_row['title']) ?></td>
+<td><?= (int) $resource_row['team_members'] ?></td>
+<td><?= (int) $resource_row['assigned_tasks'] ?></td>
+<td><?= (int) $resource_row['contractors'] ?></td>
+</tr>
+<?php endwhile; ?>
+</table>
+</div>
+</div>
+</div>
 
 <!-- ======================= CONTRACTOR STATUS ======================= -->
 <div class="row">

@@ -65,6 +65,9 @@ if (!function_exists('formatActivityLabel')) {
             'status_item_added' => 'Status Item Added',
             'stage_status_changed' => 'Status Item Updated',
             'contractor_assigned' => 'Contractor Assigned',
+            'expense_recorded' => 'Expense Recorded',
+            'team_member_added' => 'Team Member Added',
+            'task_assigned' => 'Task Assigned',
         ];
 
         return $labels[$eventType] ?? ucwords(str_replace('_', ' ', (string) $eventType));
@@ -140,5 +143,38 @@ if (!function_exists('determineProjectStatusFromStages')) {
         }
 
         return 'approved';
+    }
+}
+
+if (!function_exists('syncStageSpentBudget')) {
+    function syncStageSpentBudget($conn, $stageId)
+    {
+        $stageId = (int) $stageId;
+
+        if ($stageId <= 0) {
+            return 0.0;
+        }
+
+        $stmt = $conn->prepare("
+            SELECT COALESCE(SUM(amount), 0) AS total_spent
+            FROM project_expenses
+            WHERE stage_id = ?
+        ");
+
+        if (!$stmt) {
+            return 0.0;
+        }
+
+        $stmt->bind_param("i", $stageId);
+        $stmt->execute();
+        $spent = (float) ($stmt->get_result()->fetch_assoc()['total_spent'] ?? 0);
+
+        $update = $conn->prepare("UPDATE project_stages SET spent_budget = ? WHERE id = ?");
+        if ($update) {
+            $update->bind_param("di", $spent, $stageId);
+            $update->execute();
+        }
+
+        return $spent;
     }
 }

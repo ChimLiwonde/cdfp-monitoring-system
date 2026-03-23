@@ -4,6 +4,7 @@
 !/database/reset_demo_data.sql
 !/database/add_project_activity_log.sql
 !/database/seed_supervisor_demo.sql
+!/database/add_finance_and_task_tables.sql
 /uploads/*
 !/uploads/.gitkeep
 

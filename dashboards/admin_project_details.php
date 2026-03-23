@@ -83,6 +83,51 @@ while ($row = $comments_result->fetch_assoc()) {
     $comments[] = $row;
 }
 
+$expenses_stmt = $conn->prepare("
+    SELECT
+        pe.expense_title,
+        pe.category,
+        pe.vendor_name,
+        pe.amount,
+        pe.expense_date,
+        pe.notes,
+        ps.stage_name
+    FROM project_expenses pe
+    JOIN project_stages ps ON ps.id = pe.stage_id
+    WHERE pe.project_id = ?
+    ORDER BY pe.expense_date DESC, pe.id DESC
+");
+$expenses_stmt->bind_param("i", $project_id);
+$expenses_stmt->execute();
+$expenses_result = $expenses_stmt->get_result();
+$expenses = [];
+while ($row = $expenses_result->fetch_assoc()) {
+    $expenses[] = $row;
+}
+
+$assignments_stmt = $conn->prepare("
+    SELECT
+        ps.stage_name,
+        ps.status AS stage_status,
+        ptm.full_name,
+        ptm.role_title,
+        ptm.contact_info,
+        psa.assignment_notes,
+        psa.assigned_at
+    FROM project_stage_assignments psa
+    JOIN project_stages ps ON ps.id = psa.stage_id
+    JOIN project_team_members ptm ON ptm.id = psa.team_member_id
+    WHERE ps.project_id = ?
+    ORDER BY ps.planned_start ASC, psa.assigned_at DESC
+");
+$assignments_stmt->bind_param("i", $project_id);
+$assignments_stmt->execute();
+$assignments_result = $assignments_stmt->get_result();
+$assignments = [];
+while ($row = $assignments_result->fetch_assoc()) {
+    $assignments[] = $row;
+}
+
 $stages_stmt = $conn->prepare("
     SELECT stage_name, planned_start, planned_end, actual_start, actual_end, allocated_budget, spent_budget, status, notes
     FROM project_stages
@@ -300,6 +345,38 @@ foreach ($stages as $stage) {
 
             <hr>
 
+            <h4>Task Assignments</h4>
+            <?php if (count($assignments) === 0): ?>
+                <p class="muted">No status items have been assigned yet.</p>
+            <?php else: ?>
+                <table class="dashboard-table">
+                    <tr>
+                        <th>Status Item</th>
+                        <th>Assigned To</th>
+                        <th>Notes</th>
+                    </tr>
+                    <?php foreach ($assignments as $assignment): ?>
+                        <tr>
+                            <td>
+                                <?= htmlspecialchars($assignment['stage_name']) ?><br>
+                                <small><?= htmlspecialchars(formatStatusLabel($assignment['stage_status'])) ?></small>
+                            </td>
+                            <td>
+                                <?= htmlspecialchars($assignment['full_name']) ?><br>
+                                <small><?= htmlspecialchars($assignment['role_title']) ?></small><br>
+                                <small><?= htmlspecialchars($assignment['contact_info'] ?: 'N/A') ?></small>
+                            </td>
+                            <td>
+                                <?= nl2br(htmlspecialchars($assignment['assignment_notes'] ?: 'No notes')) ?><br>
+                                <small><?= date("d M Y, H:i", strtotime($assignment['assigned_at'])) ?></small>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </table>
+            <?php endif; ?>
+
+            <hr>
+
             <h4>Workflow / Approval History</h4>
             <?php if (count($activities) === 0): ?>
                 <p class="muted">No workflow activity has been recorded for this project yet.</p>
@@ -335,6 +412,37 @@ foreach ($stages as $stage) {
                         <?php endif; ?>
                     </div>
                 <?php endforeach; ?>
+            <?php endif; ?>
+
+            <hr>
+
+            <h4>Expenditure Ledger</h4>
+            <?php if (count($expenses) === 0): ?>
+                <p class="muted">No expenses recorded yet.</p>
+            <?php else: ?>
+                <table class="dashboard-table">
+                    <tr>
+                        <th>Date</th>
+                        <th>Status Item</th>
+                        <th>Expense</th>
+                        <th>Vendor</th>
+                        <th>Amount</th>
+                        <th>Notes</th>
+                    </tr>
+                    <?php foreach ($expenses as $expense): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($expense['expense_date']) ?></td>
+                            <td><?= htmlspecialchars($expense['stage_name']) ?></td>
+                            <td>
+                                <?= htmlspecialchars($expense['expense_title']) ?><br>
+                                <small><?= htmlspecialchars($expense['category']) ?></small>
+                            </td>
+                            <td><?= htmlspecialchars($expense['vendor_name'] ?: 'N/A') ?></td>
+                            <td>MWK <?= number_format((float) $expense['amount'], 2) ?></td>
+                            <td><?= nl2br(htmlspecialchars($expense['notes'] ?: 'No notes')) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </table>
             <?php endif; ?>
 
             <hr>

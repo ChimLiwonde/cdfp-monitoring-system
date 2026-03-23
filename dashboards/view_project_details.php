@@ -53,6 +53,22 @@ $totals = $conn->query("
 $allocated = $totals['allocated'];
 $spent     = $totals['spent'];
 $balance   = $allocated - $spent;
+
+$expenses = $conn->query("
+    SELECT expense_title, category, amount, expense_date, vendor_name, notes
+    FROM project_expenses
+    WHERE project_id = $project_id
+    ORDER BY expense_date DESC, id DESC
+");
+
+$assignments = $conn->query("
+    SELECT ps.stage_name, ptm.full_name, ptm.role_title, ptm.contact_info, psa.assignment_notes
+    FROM project_stage_assignments psa
+    JOIN project_stages ps ON ps.id = psa.stage_id
+    JOIN project_team_members ptm ON ptm.id = psa.team_member_id
+    WHERE ps.project_id = $project_id
+    ORDER BY ps.planned_start ASC, psa.assigned_at DESC
+");
 ?>
 <!DOCTYPE html>
 <html>
@@ -114,6 +130,61 @@ $balance   = $allocated - $spent;
 
     <hr>
 
+    <h4>Task Assignments</h4>
+    <?php if ($assignments->num_rows > 0): ?>
+        <table class="dashboard-table">
+            <tr>
+                <th>Status Item</th>
+                <th>Assigned To</th>
+                <th>Notes</th>
+            </tr>
+            <?php while ($assignment = $assignments->fetch_assoc()): ?>
+                <tr>
+                    <td><?= htmlspecialchars($assignment['stage_name']) ?></td>
+                    <td>
+                        <?= htmlspecialchars($assignment['full_name']) ?><br>
+                        <small><?= htmlspecialchars($assignment['role_title']) ?></small><br>
+                        <small><?= htmlspecialchars($assignment['contact_info'] ?: 'N/A') ?></small>
+                    </td>
+                    <td><?= nl2br(htmlspecialchars($assignment['assignment_notes'] ?: 'No notes')) ?></td>
+                </tr>
+            <?php endwhile; ?>
+        </table>
+    <?php else: ?>
+        <p style="color:#999;">No task assignments recorded yet.</p>
+    <?php endif; ?>
+
+    <hr>
+
+    <h4>Expenditure Ledger</h4>
+    <?php if ($expenses->num_rows > 0): ?>
+        <table class="dashboard-table">
+            <tr>
+                <th>Date</th>
+                <th>Expense</th>
+                <th>Vendor</th>
+                <th>Amount</th>
+                <th>Notes</th>
+            </tr>
+            <?php while ($expense = $expenses->fetch_assoc()): ?>
+                <tr>
+                    <td><?= htmlspecialchars($expense['expense_date']) ?></td>
+                    <td>
+                        <?= htmlspecialchars($expense['expense_title']) ?><br>
+                        <small><?= htmlspecialchars($expense['category']) ?></small>
+                    </td>
+                    <td><?= htmlspecialchars($expense['vendor_name'] ?: 'N/A') ?></td>
+                    <td><?= number_format((float) $expense['amount'],2) ?></td>
+                    <td><?= nl2br(htmlspecialchars($expense['notes'] ?: 'No notes')) ?></td>
+                </tr>
+            <?php endwhile; ?>
+        </table>
+    <?php else: ?>
+        <p style="color:#999;">No expenses recorded yet.</p>
+    <?php endif; ?>
+
+    <hr>
+
     <h4>Project Status History</h4>
     <table class="dashboard-table">
         <tr>
@@ -136,7 +207,7 @@ $balance   = $allocated - $spent;
             <td><?= htmlspecialchars($s['stage_name']) ?></td>
             <td><?= number_format($s['allocated_budget'],2) ?></td>
             <td><?= number_format($s['spent_budget'],2) ?></td>
-            <td><?= ucfirst($s['status']) ?></td>
+            <td><?= htmlspecialchars(formatStatusLabel($s['status'])) ?></td>
         </tr>
         <?php endwhile; ?>
     </table>

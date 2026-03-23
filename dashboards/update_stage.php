@@ -39,7 +39,6 @@ $msg = "";
 if (isset($_POST['update_stage'])) {
     $actual_start = !empty($_POST['actual_start']) ? $_POST['actual_start'] : null;
     $actual_end   = !empty($_POST['actual_end']) ? $_POST['actual_end'] : null;
-    $spent_budget = floatval($_POST['spent_budget']);
     $status       = $_POST['status'];
     $notes        = trim($_POST['notes']);
     $previous_stage_status = $stage['status'];
@@ -48,16 +47,14 @@ if (isset($_POST['update_stage'])) {
         UPDATE project_stages
         SET actual_start = ?,
             actual_end = ?,
-            spent_budget = ?,
             status = ?,
             notes = ?
         WHERE id = ?
     ");
     $update->bind_param(
-        "ssdssi",
+        "ssssi",
         $actual_start,
         $actual_end,
-        $spent_budget,
         $status,
         $notes,
         $stage_id
@@ -127,6 +124,7 @@ if (isset($_POST['update_stage'])) {
 
             <p><strong>Project:</strong> <?= formatProjectCode($stage['project_id']) ?> - <?= htmlspecialchars($stage['project_title']) ?></p>
             <p><strong>Status Item:</strong> <?= htmlspecialchars($stage['stage_name']) ?></p>
+            <p><strong>Spent Budget:</strong> MWK <?= number_format((float) $stage['spent_budget'], 2) ?> <small>(managed from Project Expenses)</small></p>
 
             <?php if ($msg): ?>
                 <div class="msg"><?= htmlspecialchars($msg) ?></div>
@@ -138,9 +136,6 @@ if (isset($_POST['update_stage'])) {
 
                 Actual End Date
                 <input type="date" name="actual_end" value="<?= htmlspecialchars($stage['actual_end'] ?? '') ?>">
-
-                Spent Budget
-                <input type="number" step="0.01" name="spent_budget" value="<?= htmlspecialchars((string) $stage['spent_budget']) ?>" required>
 
                 Status
                 <select name="status" required>
