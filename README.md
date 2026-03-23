@@ -16,6 +16,7 @@ PHP-based monitoring system for CDF projects, with public, field officer, and ad
 - `database/reset_demo_data.sql` clears project/dashboard demo records while keeping the user accounts and roles.
 - `database/add_project_activity_log.sql` adds the workflow history table used by the admin project details page.
 - `database/add_finance_and_task_tables.sql` adds the expenditure ledger and task-assignment tables used by the newer project workflow pages.
+- `database/add_internal_collaboration.sql` adds the private admin/field-officer collaboration channel used for internal project communication.
 - `database/seed_supervisor_demo.sql` loads a small supervisor-friendly sample dataset with one pending, one approved, and one denied project tied to the same field officer.
 
 ## Notes

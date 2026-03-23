@@ -122,6 +122,11 @@ INSERT INTO community_requests (user_id, district, area, title, description, sta
 VALUES
 (@public_user_id, 'Blantyre', 'Soche', 'Request for drainage improvement', 'Please consider drainage improvement near the market.', 'pending');
 
+INSERT INTO project_collaboration_messages (project_id, sender_id, sender_role, message)
+VALUES
+(@approved_project_id, @field_officer_id, 'field_officer', 'Site update: preparation is complete and drilling equipment has arrived.'),
+(@approved_project_id, @admin_user_id, 'admin', 'Received. Keep budget updates flowing through the financial report and flag any overruns early.');
+
 INSERT INTO project_activity_log (project_id, event_type, actor_id, actor_role, old_status, new_status, notes)
 VALUES
 (@pending_project_id, 'project_created', @field_officer_id, 'field_officer', NULL, 'pending', 'Project created and submitted for admin review.'),
@@ -133,6 +138,7 @@ VALUES
 (@approved_project_id, 'task_assigned', @field_officer_id, 'field_officer', NULL, NULL, 'Site Preparation assigned to Grace Banda.'),
 (@approved_project_id, 'task_assigned', @field_officer_id, 'field_officer', NULL, NULL, 'Drilling and Pump Installation assigned to Peter Mbewe.'),
 (@approved_project_id, 'expense_recorded', @field_officer_id, 'field_officer', NULL, NULL, 'Initial expenses recorded for approved project status items.'),
+(@approved_project_id, 'collaboration_message_posted', @field_officer_id, 'field_officer', NULL, NULL, 'Internal collaboration started for project progress updates.'),
 (@approved_project_id, 'stage_status_changed', @field_officer_id, 'field_officer', 'pending', 'completed', 'Site Preparation marked completed.'),
 (@approved_project_id, 'stage_status_changed', @field_officer_id, 'field_officer', 'pending', 'in_progress', 'Drilling and Pump Installation started.'),
 (@denied_project_id, 'project_created', @field_officer_id, 'field_officer', NULL, 'pending', 'Project created and submitted for admin review.'),

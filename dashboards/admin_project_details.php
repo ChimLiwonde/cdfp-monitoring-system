@@ -128,6 +128,21 @@ while ($row = $assignments_result->fetch_assoc()) {
     $assignments[] = $row;
 }
 
+$collaboration_stmt = $conn->prepare("
+    SELECT pcm.message, pcm.sender_role, pcm.created_at, u.username
+    FROM project_collaboration_messages pcm
+    JOIN users u ON u.id = pcm.sender_id
+    WHERE pcm.project_id = ?
+    ORDER BY pcm.created_at DESC, pcm.id DESC
+");
+$collaboration_stmt->bind_param("i", $project_id);
+$collaboration_stmt->execute();
+$collaboration_result = $collaboration_stmt->get_result();
+$collaboration_messages = [];
+while ($row = $collaboration_result->fetch_assoc()) {
+    $collaboration_messages[] = $row;
+}
+
 $stages_stmt = $conn->prepare("
     SELECT stage_name, planned_start, planned_end, actual_start, actual_end, allocated_budget, spent_budget, status, notes
     FROM project_stages
@@ -287,6 +302,7 @@ foreach ($stages as $stage) {
             <p><strong>Location:</strong> <?= htmlspecialchars($project['location']) ?></p>
             <p><strong>Created:</strong> <?= date("d M Y, H:i", strtotime($project['created_at'])) ?></p>
             <p><strong>Description:</strong><br><?= nl2br(htmlspecialchars($project['description'])) ?></p>
+            <p><a href="project_collaboration.php?project_id=<?= $project['id'] ?>">Open Internal Collaboration Channel</a></p>
 
             <?php if ($project['status'] === 'pending'): ?>
                 <div class="action-row">
@@ -370,6 +386,28 @@ foreach ($stages as $stage) {
                                 <?= nl2br(htmlspecialchars($assignment['assignment_notes'] ?: 'No notes')) ?><br>
                                 <small><?= date("d M Y, H:i", strtotime($assignment['assigned_at'])) ?></small>
                             </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </table>
+            <?php endif; ?>
+
+            <hr>
+
+            <h4>Internal Collaboration</h4>
+            <?php if (count($collaboration_messages) === 0): ?>
+                <p class="muted">No internal collaboration messages yet.</p>
+            <?php else: ?>
+                <table class="dashboard-table">
+                    <tr>
+                        <th>From</th>
+                        <th>Message</th>
+                        <th>When</th>
+                    </tr>
+                    <?php foreach ($collaboration_messages as $chat): ?>
+                        <tr>
+                            <td><?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatStatusLabel($chat['sender_role'])) ?>)</td>
+                            <td><?= nl2br(htmlspecialchars($chat['message'])) ?></td>
+                            <td><?= date("d M Y, H:i", strtotime($chat['created_at'])) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </table>

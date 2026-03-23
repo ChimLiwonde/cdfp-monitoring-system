@@ -9,6 +9,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
     exit();
 }
 
+$user_id = (int) $_SESSION['user_id'];
 $project_id = intval($_GET['id'] ?? 0);
 if ($project_id <= 0) {
     header("Location: my_projects.php");
@@ -21,7 +22,7 @@ if ($project_id <= 0) {
 $project = $conn->query("
     SELECT id, title, district, location, estimated_budget, contractor_fee
     FROM projects
-    WHERE id = $project_id
+    WHERE id = $project_id AND created_by = $user_id
 ")->fetch_assoc();
 
 if (!$project) {
@@ -69,6 +70,14 @@ $assignments = $conn->query("
     WHERE ps.project_id = $project_id
     ORDER BY ps.planned_start ASC, psa.assigned_at DESC
 ");
+
+$collaboration_messages = $conn->query("
+    SELECT pcm.message, pcm.sender_role, pcm.created_at, u.username
+    FROM project_collaboration_messages pcm
+    JOIN users u ON u.id = pcm.sender_id
+    WHERE pcm.project_id = $project_id
+    ORDER BY pcm.created_at DESC, pcm.id DESC
+");
 ?>
 <!DOCTYPE html>
 <html>
@@ -93,6 +102,7 @@ $assignments = $conn->query("
     <p><strong>Project ID:</strong> <?= formatProjectCode($project['id']) ?></p>
     <p><strong>District:</strong> <?= htmlspecialchars($project['district']) ?></p>
     <p><strong>Location:</strong> <?= htmlspecialchars($project['location']) ?></p>
+    <p><a href="project_collaboration.php?project_id=<?= $project['id'] ?>">Open Internal Collaboration Channel</a></p>
 
     <hr>
 
@@ -181,6 +191,28 @@ $assignments = $conn->query("
         </table>
     <?php else: ?>
         <p style="color:#999;">No expenses recorded yet.</p>
+    <?php endif; ?>
+
+    <hr>
+
+    <h4>Internal Collaboration</h4>
+    <?php if ($collaboration_messages->num_rows > 0): ?>
+        <table class="dashboard-table">
+            <tr>
+                <th>From</th>
+                <th>Message</th>
+                <th>When</th>
+            </tr>
+            <?php while ($chat = $collaboration_messages->fetch_assoc()): ?>
+                <tr>
+                    <td><?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatStatusLabel($chat['sender_role'])) ?>)</td>
+                    <td><?= nl2br(htmlspecialchars($chat['message'])) ?></td>
+                    <td><?= date("d M Y, H:i", strtotime($chat['created_at'])) ?></td>
+                </tr>
+            <?php endwhile; ?>
+        </table>
+    <?php else: ?>
+        <p style="color:#999;">No internal collaboration messages yet.</p>
     <?php endif; ?>
 
     <hr>

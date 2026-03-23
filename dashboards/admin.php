@@ -1,6 +1,7 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
     header("Location: ../Pages/login.php");
@@ -11,6 +12,8 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
 $total_projects = $conn->query("SELECT COUNT(*) total FROM projects")->fetch_assoc()['total'];
 $pending_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE status='pending'")->fetch_assoc()['total'];
 $approved_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE status='approved'")->fetch_assoc()['total'];
+$in_progress_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE status='in_progress'")->fetch_assoc()['total'];
+$completed_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE status='completed'")->fetch_assoc()['total'];
 $denied_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE status='denied'")->fetch_assoc()['total'];
 
 /* ================= COMMUNITY REQUESTS ================= */
@@ -18,6 +21,28 @@ $pending_requests = $conn->query("
     SELECT COUNT(*) total 
     FROM community_requests 
     WHERE status = 'pending'
+")->fetch_assoc()['total'];
+
+$over_budget_projects = $conn->query("
+    SELECT COUNT(*) AS total
+    FROM (
+        SELECT p.id
+        FROM projects p
+        LEFT JOIN project_expenses pe ON pe.project_id = p.id
+        GROUP BY p.id, p.estimated_budget, p.contractor_fee
+        HAVING COALESCE(SUM(pe.amount), 0) > (p.estimated_budget + p.contractor_fee)
+    ) alert_projects
+")->fetch_assoc()['total'];
+
+$over_budget_stages = $conn->query("
+    SELECT COUNT(*) AS total
+    FROM project_stages
+    WHERE spent_budget > allocated_budget
+")->fetch_assoc()['total'];
+
+$collaboration_messages = $conn->query("
+    SELECT COUNT(*) AS total
+    FROM project_collaboration_messages
 ")->fetch_assoc()['total'];
 
 /* ================= PROJECTS LAST 7 DAYS ================= */
@@ -55,6 +80,18 @@ $summary_cards = [
         'href'  => 'adminprojects.php?status=approved'
     ],
     [
+        'label' => 'Projects In Progress',
+        'value' => $in_progress_projects,
+        'class' => 'card-info',
+        'href'  => 'adminprojects.php?status=in_progress'
+    ],
+    [
+        'label' => 'Completed Projects',
+        'value' => $completed_projects,
+        'class' => 'card-completed',
+        'href'  => 'adminprojects.php?status=completed'
+    ],
+    [
         'label' => 'Denied Projects',
         'value' => $denied_projects,
         'class' => 'card-denied',
@@ -65,6 +102,27 @@ $summary_cards = [
         'value' => $pending_requests,
         'class' => 'card-community',
         'href'  => 'admin_community_requests.php?status=pending'
+    ]
+];
+
+$alert_cards = [
+    [
+        'label' => 'Over Budget Projects',
+        'value' => $over_budget_projects,
+        'class' => 'card-denied',
+        'href'  => 'admin_project_report.php?type=financial'
+    ],
+    [
+        'label' => 'Over Budget Status Items',
+        'value' => $over_budget_stages,
+        'class' => 'card-pending',
+        'href'  => 'admin_project_report.php?type=financial'
+    ],
+    [
+        'label' => 'Internal Collaboration Messages',
+        'value' => $collaboration_messages,
+        'class' => 'card-total',
+        'href'  => 'project_collaboration.php'
     ]
 ];
 ?>
@@ -106,8 +164,16 @@ $summary_cards = [
         .card-total { background:#0c90b4; }
         .card-pending { background:#fbc02d; color:#000; }
         .card-approved { background:#388e3c; }
+        .card-info { background:#0288d1; }
+        .card-completed { background:#1565c0; }
         .card-denied { background:#d32f2f; }
         .card-community { background:#ffff; color:#000; }
+        .alert-grid {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
         canvas {
             background:#fff;
             border-radius:8px;
@@ -130,6 +196,18 @@ $summary_cards = [
 
         <div class="summary-cards">
             <?php foreach ($summary_cards as $card): ?>
+                <a class="summary-card-link" href="<?= $card['href'] ?>">
+                    <div class="summary-card <?= $card['class'] ?>">
+                        <h3><?= $card['label'] ?></h3>
+                        <h2><?= $card['value'] ?></h2>
+                    </div>
+                </a>
+            <?php endforeach; ?>
+        </div>
+
+        <h3>Budget Alerts and Collaboration</h3>
+        <div class="alert-grid">
+            <?php foreach ($alert_cards as $card): ?>
                 <a class="summary-card-link" href="<?= $card['href'] ?>">
                     <div class="summary-card <?= $card['class'] ?>">
                         <h3><?= $card['label'] ?></h3>

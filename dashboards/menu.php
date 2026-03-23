@@ -6,6 +6,7 @@
         <li><a href="add_stage.php">Project Status</a></li>
         <li><a href="task_assignments.php">Task Assignments</a></li>
         <li><a href="project_expenses.php">Project Expenses</a></li>
+        <li><a href="project_collaboration.php">Collaboration</a></li>
         <li><a href="my_projects.php">My Projects</a></li>
         <li><a href="add_contractor.php">Add Contractor</a></li>
         <li><a href="Officer_settings.php">Settings</a></li>

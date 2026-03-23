@@ -9,6 +9,7 @@ DELETE FROM project_maps;
 DELETE FROM project_stage_assignments;
 DELETE FROM project_team_members;
 DELETE FROM project_expenses;
+DELETE FROM project_collaboration_messages;
 DELETE FROM project_stages;
 DELETE FROM project_activity_log;
 DELETE FROM contractor_projects;
@@ -22,6 +23,7 @@ ALTER TABLE project_maps AUTO_INCREMENT = 1;
 ALTER TABLE project_stage_assignments AUTO_INCREMENT = 1;
 ALTER TABLE project_team_members AUTO_INCREMENT = 1;
 ALTER TABLE project_expenses AUTO_INCREMENT = 1;
+ALTER TABLE project_collaboration_messages AUTO_INCREMENT = 1;
 ALTER TABLE project_stages AUTO_INCREMENT = 1;
 ALTER TABLE project_activity_log AUTO_INCREMENT = 1;
 ALTER TABLE contractor_projects AUTO_INCREMENT = 1;
@@ -45,6 +47,8 @@ UNION ALL
 SELECT 'project_team_members', COUNT(*) FROM project_team_members
 UNION ALL
 SELECT 'project_expenses', COUNT(*) FROM project_expenses
+UNION ALL
+SELECT 'project_collaboration_messages', COUNT(*) FROM project_collaboration_messages
 UNION ALL
 SELECT 'project_activity_log', COUNT(*) FROM project_activity_log
 UNION ALL

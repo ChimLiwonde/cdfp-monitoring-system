@@ -68,6 +68,7 @@ if (!function_exists('formatActivityLabel')) {
             'expense_recorded' => 'Expense Recorded',
             'team_member_added' => 'Team Member Added',
             'task_assigned' => 'Task Assigned',
+            'collaboration_message_posted' => 'Collaboration Message Posted',
         ];
 
         return $labels[$eventType] ?? ucwords(str_replace('_', ' ', (string) $eventType));
@@ -176,5 +177,36 @@ if (!function_exists('syncStageSpentBudget')) {
         }
 
         return $spent;
+    }
+}
+
+if (!function_exists('normalizeReportType')) {
+    function normalizeReportType($type, $default = 'progress')
+    {
+        $allowed = ['progress', 'financial'];
+        return in_array($type, $allowed, true) ? $type : $default;
+    }
+}
+
+if (!function_exists('formatReportTypeLabel')) {
+    function formatReportTypeLabel($type)
+    {
+        return normalizeReportType($type) === 'financial' ? 'Financial Report' : 'Progress Report';
+    }
+}
+
+if (!function_exists('calculateProgressPercent')) {
+    function calculateProgressPercent($totalItems, $completedItems, $activeItems)
+    {
+        $totalItems = (int) $totalItems;
+        $completedItems = (int) $completedItems;
+        $activeItems = (int) $activeItems;
+
+        if ($totalItems <= 0) {
+            return 0;
+        }
+
+        $progressUnits = $completedItems + ($activeItems * 0.5);
+        return (int) round(($progressUnits / $totalItems) * 100);
     }
 }

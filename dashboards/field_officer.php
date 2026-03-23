@@ -143,6 +143,33 @@ $resource_allocation = $conn->query("
     ORDER BY p.created_at DESC
 ");
 
+$over_budget_projects_count = $conn->query("
+    SELECT COUNT(*) AS total
+    FROM (
+        SELECT p.id
+        FROM projects p
+        LEFT JOIN project_expenses pe ON pe.project_id = p.id
+        WHERE p.created_by = $user_id
+        GROUP BY p.id, p.estimated_budget, p.contractor_fee
+        HAVING COALESCE(SUM(pe.amount), 0) > (p.estimated_budget + p.contractor_fee)
+    ) alert_projects
+")->fetch_assoc()['total'];
+
+$over_budget_status_items_count = $conn->query("
+    SELECT COUNT(*) AS total
+    FROM project_stages ps
+    JOIN projects p ON p.id = ps.project_id
+    WHERE p.created_by = $user_id
+      AND ps.spent_budget > ps.allocated_budget
+")->fetch_assoc()['total'];
+
+$collaboration_message_count = $conn->query("
+    SELECT COUNT(*) AS total
+    FROM project_collaboration_messages pcm
+    JOIN projects p ON p.id = pcm.project_id
+    WHERE p.created_by = $user_id
+")->fetch_assoc()['total'];
+
 $success_message = $_SESSION['success_message'] ?? '';
 unset($_SESSION['success_message']);
 ?>
@@ -232,6 +259,30 @@ foreach ($cards as $t => $v):
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+</div>
+</div>
+
+<div class="row">
+<div class="col-4">
+<div class="form-card" style="text-align:center;">
+<h3>Over Budget Projects</h3>
+<h2 style="color:#d32f2f;"><?= $over_budget_projects_count ?></h2>
+<a href="project_expenses.php">Review Expenses</a>
+</div>
+</div>
+<div class="col-4">
+<div class="form-card" style="text-align:center;">
+<h3>Over Budget Status Items</h3>
+<h2 style="color:#d32f2f;"><?= $over_budget_status_items_count ?></h2>
+<a href="add_stage.php">Manage Project Status</a>
+</div>
+</div>
+<div class="col-4">
+<div class="form-card" style="text-align:center;">
+<h3>Internal Messages</h3>
+<h2 style="color:#1565c0;"><?= $collaboration_message_count ?></h2>
+<a href="project_collaboration.php">Open Collaboration</a>
+</div>
 </div>
 </div>
 

@@ -11,7 +11,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 
 /* ======================= FETCH PROJECTS ======================= */
 $status = $_GET['status'] ?? 'pending';
-$allowed_statuses = ['all', 'pending', 'approved', 'denied'];
+$allowed_statuses = ['all', 'pending', 'approved', 'in_progress', 'completed', 'denied'];
 
 if (!in_array($status, $allowed_statuses, true)) {
     $status = 'pending';
@@ -57,6 +57,8 @@ $heading_map = [
     'all' => 'All Projects',
     'pending' => 'Pending Project Approvals',
     'approved' => 'Approved Projects',
+    'in_progress' => 'Projects In Progress',
+    'completed' => 'Completed Projects',
     'denied' => 'Denied Projects'
 ];
 
@@ -103,6 +105,8 @@ unset($_SESSION['success_message']);
                 <a href="adminprojects.php?status=all">All</a> |
                 <a href="adminprojects.php?status=pending">Pending</a> |
                 <a href="adminprojects.php?status=approved">Approved</a> |
+                <a href="adminprojects.php?status=in_progress">In Progress</a> |
+                <a href="adminprojects.php?status=completed">Completed</a> |
                 <a href="adminprojects.php?status=denied">Denied</a>
             </p>
 
