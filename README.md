@@ -11,6 +11,12 @@ PHP-based monitoring system for CDF projects, with public, field officer, and ad
 5. Import your local SQL dump into that database.
 6. Serve the project with PHP/XAMPP and open `index.php`.
 
+## Demo scripts
+
+- `database/reset_demo_data.sql` clears project/dashboard demo records while keeping the user accounts and roles.
+- `database/add_project_activity_log.sql` adds the workflow history table used by the admin project details page.
+- `database/seed_supervisor_demo.sql` loads a small supervisor-friendly sample dataset with one pending, one approved, and one denied project tied to the same field officer.
+
 ## Notes
 
 - Live config files are ignored so secrets stay local.

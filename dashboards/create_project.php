@@ -4,7 +4,7 @@ require "../config/db.php";
 
 /* SECURITY: ONLY FIELD OFFICERS */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 ?>

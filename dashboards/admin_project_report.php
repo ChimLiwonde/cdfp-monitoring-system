@@ -1,9 +1,10 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -31,52 +32,45 @@ LEFT JOIN contractor_projects cp ON cp.project_id = p.id
 LEFT JOIN contractors c ON c.id = cp.contractor_id
 LEFT JOIN project_stages ps ON ps.project_id = p.id
 LEFT JOIN project_maps pm ON pm.project_id = p.id
-ORDER BY p.created_at DESC
+ORDER BY p.created_at DESC, ps.planned_end ASC
 ";
 
 $result = $conn->query($sql);
 $projects = [];
 $mapData = [];
+$mappedProjects = [];
 
-while ($r = $result->fetch_assoc()) {
+while ($row = $result->fetch_assoc()) {
+    $risk = '-';
+    if (!in_array($row['project_status'], ['pending', 'denied'], true) && $row['stage_name']) {
+        $delayed = !empty($row['actual_end']) && !empty($row['planned_end']) && strtotime($row['actual_end']) > strtotime($row['planned_end']);
+        $overspent = (float) $row['spent_budget'] > (float) $row['allocated_budget'];
 
-    $completed = ($r['stage_status'] === 'completed');
-
-    if ($r['project_status'] === 'denied') {
-        $status = "Denied";
-    } elseif ($r['project_status'] === 'pending') {
-        $status = "Pending";
-    } elseif ($r['project_status'] === 'approved' && $completed) {
-        $status = "Completed";
-    } else {
-        $status = "Approved";
+        if ($delayed && $overspent) {
+            $risk = 'RED';
+        } elseif ($delayed || $overspent) {
+            $risk = 'YELLOW';
+        } else {
+            $risk = 'GREEN';
+        }
     }
 
-    $risk = "—";
-    if ($status === "Approved" || $status === "Completed") {
-        $delayed = $r['actual_end'] && strtotime($r['actual_end']) > strtotime($r['planned_end']);
-        $overspent = $r['spent_budget'] > $r['allocated_budget'];
+    $row['final_status'] = formatStatusLabel($row['project_status']);
+    $row['completed'] = $row['project_status'] === 'completed' ? 'Yes' : 'No';
+    $row['risk'] = $risk;
 
-        if ($delayed && $overspent) $risk = "RED";
-        elseif ($delayed || $overspent) $risk = "YELLOW";
-        else $risk = "GREEN";
-    }
-
-    $r['final_status'] = $status;
-    $r['completed'] = $completed ? "Yes" : "No";
-    $r['risk'] = $risk;
-
-    if ($r['latitude'] && $r['longitude']) {
+    if ($row['latitude'] && $row['longitude'] && !isset($mappedProjects[$row['id']])) {
         $mapData[] = [
-            'title' => $r['title'],
-            'district' => $r['district'],
-            'location' => $r['location'],
-            'lat' => $r['latitude'],
-            'lng' => $r['longitude']
+            'title' => $row['title'],
+            'district' => $row['district'],
+            'location' => $row['location'],
+            'lat' => $row['latitude'],
+            'lng' => $row['longitude']
         ];
+        $mappedProjects[$row['id']] = true;
     }
 
-    $projects[] = $r;
+    $projects[] = $row;
 }
 ?>
 <!DOCTYPE html>
@@ -86,13 +80,11 @@ while ($r = $result->fetch_assoc()) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="../assets/css/flexible.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <style>
 #projectMap { height:380px; margin-bottom:15px; border-radius:6px; }
-
-/* EXPORT BAR STYLES */
 .export-bar{
     display:flex;
     justify-content:space-between;
@@ -149,27 +141,25 @@ while ($r = $result->fetch_assoc()) {
 
 <div class="form-card">
 
-<h2>📊 Project Status, Risk & Completion</h2>
+<h2 style="margin-bottom:20px;color:#0d47a1;">Project Status, Risk and Completion</h2>
 
-<!-- EXPORT BUTTONS -->
 <div class="export-bar">
-    <div class="export-label">📤 Export Project Report</div>
+    <div class="export-label">Export Project Report</div>
     <div class="export-actions">
-        <a href="export_report_excel.php" class="btn btn-excel">📊 Export Excel</a>
-        <a href="export_report_pdf.php" target="_blank" class="btn btn-pdf">📄 Export PDF</a>
+        <a href="export_report_excel.php" class="btn btn-excel">Export Excel</a>
+        <a href="export_report_pdf.php" target="_blank" class="btn btn-pdf">Export PDF</a>
     </div>
 </div>
 
-<!-- MAP -->
 <div id="projectMap"></div>
 
-<!-- PROJECT TABLE -->
 <table class="dashboard-table">
 <tr>
+<th>Project ID</th>
 <th>Project</th>
 <th>District</th>
 <th>Location</th>
-<th>Stage</th>
+<th>Status Item</th>
 <th>Status</th>
 <th>Completed</th>
 <th>Budget</th>
@@ -177,24 +167,31 @@ while ($r = $result->fetch_assoc()) {
 <th>Risk</th>
 </tr>
 
-<?php foreach($projects as $p): ?>
+<?php if (count($projects) === 0): ?>
 <tr>
-<td><?= htmlspecialchars($p['title']) ?></td>
-<td><?= htmlspecialchars($p['district']) ?></td>
-<td><?= htmlspecialchars($p['location']) ?></td>
-<td><?= htmlspecialchars($p['stage_name']) ?></td>
-<td><?= $p['final_status'] ?></td>
-<td><?= $p['completed'] ?></td>
+<td colspan="10" style="text-align:center;color:gray;">No projects available for reporting yet.</td>
+</tr>
+<?php endif; ?>
+
+<?php foreach($projects as $project): ?>
+<tr>
+<td><a href="admin_project_details.php?id=<?= $project['id'] ?>"><?= formatProjectCode($project['id']) ?></a></td>
+<td><a href="admin_project_details.php?id=<?= $project['id'] ?>"><?= htmlspecialchars($project['title']) ?></a></td>
+<td><?= htmlspecialchars($project['district']) ?></td>
+<td><?= htmlspecialchars($project['location']) ?></td>
+<td><?= htmlspecialchars($project['stage_name'] ?: 'No status item yet') ?></td>
+<td><?= htmlspecialchars($project['final_status']) ?></td>
+<td><?= htmlspecialchars($project['completed']) ?></td>
 <td>
-Alloc: <?= number_format($p['allocated_budget'],2) ?><br>
-Spent: <?= number_format($p['spent_budget'],2) ?>
+Alloc: <?= number_format((float) $project['allocated_budget'], 2) ?><br>
+Spent: <?= number_format((float) $project['spent_budget'], 2) ?>
 </td>
 <td>
-Officer: <?= htmlspecialchars($p['field_officer']) ?><br>
-Contractor: <?= htmlspecialchars($p['contractor_name'] ?? '—') ?><br>
-<?= htmlspecialchars($p['company'] ?? '') ?>
+Officer: <?= htmlspecialchars($project['field_officer']) ?><br>
+Contractor: <?= htmlspecialchars($project['contractor_name'] ?: '-') ?><br>
+<?= htmlspecialchars($project['company'] ?: '') ?>
 </td>
-<td><?= $p['risk'] ?></td>
+<td><?= htmlspecialchars($project['risk']) ?></td>
 </tr>
 <?php endforeach; ?>
 </table>
@@ -211,9 +208,9 @@ const map = L.map('projectMap').setView([-13.2543, 34.3015], 6);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-mapData.forEach(p=>{
-    L.marker([p.lat,p.lng]).addTo(map)
-     .bindPopup(`<b>${p.title}</b><br>${p.district}<br>${p.location}`);
+mapData.forEach(function (project) {
+    L.marker([project.lat, project.lng]).addTo(map)
+        .bindPopup('<b>' + project.title + '</b><br>' + project.district + '<br>' + project.location);
 });
 </script>
 

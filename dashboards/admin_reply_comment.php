@@ -1,10 +1,11 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 /* ================= SECURITY ================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -42,6 +43,7 @@ $stmt = $conn->prepare("
         pc.comment,
         pc.admin_reply,
         u.username,
+        p.id AS project_id,
         p.title AS project_title
     FROM project_comments pc
     JOIN users u ON u.id = pc.user_id
@@ -79,7 +81,9 @@ if (!$comment) {
 
             <p>
                 <strong>Project:</strong>
-                <?= htmlspecialchars($comment['project_title']) ?>
+                <a href="admin_project_details.php?id=<?= $comment['project_id'] ?>">
+                    <?= formatProjectCode($comment['project_id']) ?> - <?= htmlspecialchars($comment['project_title']) ?>
+                </a>
             </p>
 
             <p>

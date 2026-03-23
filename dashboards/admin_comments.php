@@ -1,14 +1,15 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 if ($_SESSION['role'] !== 'admin') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
 $comments = $conn->query("
-    SELECT pc.*, p.title, u.username
+    SELECT pc.*, p.id AS project_id, p.title, u.username
     FROM project_comments pc
     JOIN projects p ON p.id = pc.project_id
     JOIN users u ON u.id = pc.user_id
@@ -34,7 +35,7 @@ $comments = $conn->query("
 
 <?php while($c = $comments->fetch_assoc()): ?>
 <div class="project-card">
-<strong>Project:</strong> <?= htmlspecialchars($c['title']) ?><br>
+<strong>Project:</strong> <a href="admin_project_details.php?id=<?= $c['project_id'] ?>"><?= formatProjectCode($c['project_id']) ?> - <?= htmlspecialchars($c['title']) ?></a><br>
 <strong>User:</strong> <?= htmlspecialchars($c['username']) ?><br>
 <p><?= htmlspecialchars($c['comment']) ?></p>
 

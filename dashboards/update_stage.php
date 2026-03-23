@@ -1,26 +1,24 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
-/* SHOW ERRORS (DEV MODE) */
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-/* AUTH */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
 $user_id  = $_SESSION['user_id'];
 $stage_id = intval($_GET['id'] ?? 0);
 
-if (!$stage_id) {
+if ($stage_id <= 0) {
     header("Location: field_officer.php");
     exit();
 }
 
-/* FETCH STAGE + PROJECT OWNERSHIP */
 $stmt = $conn->prepare("
     SELECT ps.*, p.title AS project_title, p.id AS project_id
     FROM project_stages ps
@@ -38,26 +36,23 @@ if (!$stage) {
 
 $msg = "";
 
-/* UPDATE STAGE */
 if (isset($_POST['update_stage'])) {
-
-    $actual_start = !empty($_POST['actual_start']) ? $_POST['actual_start'] : NULL;
-    $actual_end   = !empty($_POST['actual_end'])   ? $_POST['actual_end']   : NULL;
+    $actual_start = !empty($_POST['actual_start']) ? $_POST['actual_start'] : null;
+    $actual_end   = !empty($_POST['actual_end']) ? $_POST['actual_end'] : null;
     $spent_budget = floatval($_POST['spent_budget']);
     $status       = $_POST['status'];
-    $notes        = $_POST['notes'];
+    $notes        = trim($_POST['notes']);
+    $previous_stage_status = $stage['status'];
 
     $update = $conn->prepare("
         UPDATE project_stages
         SET actual_start = ?,
-            actual_end   = ?,
+            actual_end = ?,
             spent_budget = ?,
-            status       = ?,
-            notes        = ?
+            status = ?,
+            notes = ?
         WHERE id = ?
     ");
-
-    /* CORRECT TYPES */
     $update->bind_param(
         "ssdssi",
         $actual_start,
@@ -69,37 +64,54 @@ if (isset($_POST['update_stage'])) {
     );
 
     if ($update->execute()) {
+        $project_id = (int) $stage['project_id'];
 
-        /* UPDATE PROJECT STATUS BASED ON STAGES */
-        $project_id = $stage['project_id'];
+        $currentProjectStmt = $conn->prepare("SELECT status FROM projects WHERE id = ?");
+        $currentProjectStmt->bind_param("i", $project_id);
+        $currentProjectStmt->execute();
+        $current_project_status = $currentProjectStmt->get_result()->fetch_assoc()['status'] ?? 'approved';
 
-        $total = $conn->query("
-            SELECT COUNT(*) FROM project_stages
-            WHERE project_id = $project_id
-        ")->fetch_row()[0];
+        logProjectActivity(
+            $conn,
+            $project_id,
+            'stage_status_changed',
+            $user_id,
+            $_SESSION['role'] ?? 'field_officer',
+            $previous_stage_status,
+            $status,
+            "Status item '{$stage['stage_name']}' updated."
+        );
 
-        $completed = $conn->query("
-            SELECT COUNT(*) FROM project_stages
-            WHERE project_id = $project_id AND status = 'completed'
-        ")->fetch_row()[0];
+        $new_project_status = determineProjectStatusFromStages($conn, $project_id, $current_project_status);
+        if ($new_project_status !== $current_project_status) {
+            $projectUpdate = $conn->prepare("UPDATE projects SET status = ? WHERE id = ?");
+            $projectUpdate->bind_param("si", $new_project_status, $project_id);
+            $projectUpdate->execute();
 
-        if ($completed == $total && $total > 0) {
-            $conn->query("UPDATE projects SET status='completed' WHERE id=$project_id");
-        } elseif ($completed > 0) {
-            $conn->query("UPDATE projects SET status='in_progress' WHERE id=$project_id");
+            logProjectActivity(
+                $conn,
+                $project_id,
+                'project_status_changed',
+                $user_id,
+                $_SESSION['role'] ?? 'field_officer',
+                $current_project_status,
+                $new_project_status,
+                "Project lifecycle updated after status item review."
+            );
         }
 
+        $_SESSION['success_message'] = "Status item updated for " . formatProjectCode($project_id) . ".";
         header("Location: view_stages.php?project_id=$project_id");
         exit();
-    } else {
-        $msg = "Failed to update stage.";
     }
+
+    $msg = "Failed to update status item.";
 }
 ?>
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Update Stage</title>
+    <title>Update Project Status</title>
     <link rel="stylesheet" href="../assets/css/flexible.css">
 </head>
 <body>
@@ -111,45 +123,41 @@ if (isset($_POST['update_stage'])) {
 
     <div class="col-9">
         <div class="form-card">
-            <h3>Update Stage</h3>
+            <h3>Update Project Status</h3>
 
-            <p><strong>Project:</strong> <?= htmlspecialchars($stage['project_title']) ?></p>
-            <p><strong>Stage:</strong> <?= htmlspecialchars($stage['stage_name']) ?></p>
+            <p><strong>Project:</strong> <?= formatProjectCode($stage['project_id']) ?> - <?= htmlspecialchars($stage['project_title']) ?></p>
+            <p><strong>Status Item:</strong> <?= htmlspecialchars($stage['stage_name']) ?></p>
 
             <?php if ($msg): ?>
-                <div class="msg"><?= $msg ?></div>
+                <div class="msg"><?= htmlspecialchars($msg) ?></div>
             <?php endif; ?>
 
             <form method="POST">
-
                 Actual Start Date
-                <input type="date" name="actual_start" value="<?= $stage['actual_start'] ?>">
+                <input type="date" name="actual_start" value="<?= htmlspecialchars($stage['actual_start'] ?? '') ?>">
 
                 Actual End Date
-                <input type="date" name="actual_end" value="<?= $stage['actual_end'] ?>">
+                <input type="date" name="actual_end" value="<?= htmlspecialchars($stage['actual_end'] ?? '') ?>">
 
                 Spent Budget
-                <input type="number" step="0.01" name="spent_budget"
-                       value="<?= $stage['spent_budget'] ?>" required>
+                <input type="number" step="0.01" name="spent_budget" value="<?= htmlspecialchars((string) $stage['spent_budget']) ?>" required>
 
                 Status
                 <select name="status" required>
-                    <option value="pending" <?= $stage['status']=='pending'?'selected':'' ?>>Pending</option>
-                    <option value="in_progress" <?= $stage['status']=='in_progress'?'selected':'' ?>>In Progress</option>
-                    <option value="completed" <?= $stage['status']=='completed'?'selected':'' ?>>Completed</option>
+                    <option value="pending" <?= $stage['status'] === 'pending' ? 'selected' : '' ?>>Pending</option>
+                    <option value="in_progress" <?= $stage['status'] === 'in_progress' ? 'selected' : '' ?>>In Progress</option>
+                    <option value="completed" <?= $stage['status'] === 'completed' ? 'selected' : '' ?>>Completed</option>
                 </select>
 
                 Notes
-                <textarea name="notes"><?= $stage['notes'] ?></textarea>
+                <textarea name="notes" style="width:100%;min-height:120px;padding:12px;border:1px solid #90caf9;border-radius:8px;"><?= htmlspecialchars($stage['notes'] ?? '') ?></textarea>
 
                 <br>
-                <input type="submit" name="update_stage" value="Update Stage">
+                <input type="submit" name="update_stage" value="Update Status Item">
             </form>
 
             <br>
-            <a href="view_stages.php?project_id=<?= $stage['project_id'] ?>">
-                ← Back to Stages
-            </a>
+            <a href="view_stages.php?project_id=<?= $stage['project_id'] ?>">Back to Project Status</a>
         </div>
     </div>
 </div>

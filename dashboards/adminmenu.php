@@ -1,7 +1,7 @@
 <div class="form-card">
     <h3>Menu</h3>
     <ul class="menu-list">
-    <li><a href="admin.php">Dashboard</a></li>
+    <li><a href="home.php">Dashboard</a></li>
     <li><a href="adminprojects.php">Project Approvals</a></li>
     <li><a href="admin_add_officer.php">Create Field Officer</a></li>
     <li><a href="admin_community_requests.php">Community Requests</a></li>

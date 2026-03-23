@@ -1,10 +1,11 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 /* SECURITY */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -18,7 +19,7 @@ if ($project_id <= 0) {
    FETCH PROJECT
 ========================= */
 $project = $conn->query("
-    SELECT title, district, location, estimated_budget, contractor_fee
+    SELECT id, title, district, location, estimated_budget, contractor_fee
     FROM projects
     WHERE id = $project_id
 ")->fetch_assoc();
@@ -69,17 +70,16 @@ $balance   = $allocated - $spent;
 <div class="col-9">
 <div class="form-card">
 
-    <!-- BACK -->
-    <a href="my_projects.php" class="back-btn">← Back to My Projects</a>
+    <a href="my_projects.php" class="back-btn">Back to My Projects</a>
 
-    <h3><?= htmlspecialchars($project['title']) ?> – Summary</h3>
+    <h3><?= formatProjectCode($project['id']) ?> - <?= htmlspecialchars($project['title']) ?> Summary</h3>
 
+    <p><strong>Project ID:</strong> <?= formatProjectCode($project['id']) ?></p>
     <p><strong>District:</strong> <?= htmlspecialchars($project['district']) ?></p>
     <p><strong>Location:</strong> <?= htmlspecialchars($project['location']) ?></p>
 
     <hr>
 
-    <!-- CONTRACTORS -->
     <h4>Assigned Contractor(s)</h4>
 
     <?php if ($contractors->num_rows > 0): ?>
@@ -99,27 +99,25 @@ $balance   = $allocated - $spent;
 
     <hr>
 
-    <!-- FINANCIAL SUMMARY -->
     <h4>Financial Summary</h4>
     <p><strong>Estimated Budget:</strong> MWK <?= number_format($project['estimated_budget'],2) ?></p>
     <p><strong>Contractor Fee:</strong> MWK <?= number_format($project['contractor_fee'],2) ?></p>
 
-    <p><strong>Total Allocated (Stages):</strong> MWK <?= number_format($allocated,2) ?></p>
+    <p><strong>Total Allocated (Status Items):</strong> MWK <?= number_format($allocated,2) ?></p>
     <p><strong>Total Spent:</strong> MWK <?= number_format($spent,2) ?></p>
 
     <?php if ($spent > $allocated): ?>
         <p style="color:red;"><strong>Overspent by:</strong> MWK <?= number_format(abs($balance),2) ?></p>
     <?php else: ?>
-        <p style="color:green;"><strong>Within Budget ✔</strong></p>
+        <p style="color:green;"><strong>Within Budget</strong></p>
     <?php endif; ?>
 
     <hr>
 
-    <!-- STAGES -->
-    <h4>Project Stages</h4>
+    <h4>Project Status History</h4>
     <table class="dashboard-table">
         <tr>
-            <th>Stage</th>
+            <th>Status Item</th>
             <th>Allocated</th>
             <th>Spent</th>
             <th>Status</th>

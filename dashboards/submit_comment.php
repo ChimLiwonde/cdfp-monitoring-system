@@ -3,7 +3,7 @@ session_start();
 require "../config/db.php";
 
 if ($_SESSION['role'] !== 'public') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 

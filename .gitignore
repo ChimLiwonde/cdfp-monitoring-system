@@ -1,6 +1,9 @@
 /config/db.php
 /config/mail.php
 /database/*.sql
+!/database/reset_demo_data.sql
+!/database/add_project_activity_log.sql
+!/database/seed_supervisor_demo.sql
 /uploads/*
 !/uploads/.gitkeep
 

@@ -3,7 +3,7 @@ session_start();
 require "../config/db.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -34,6 +34,39 @@ for ($i = 6; $i >= 0; $i--) {
     $projects_per_day[$date] = count($titles);
     $projects_titles_per_day[$date] = $titles;
 }
+
+$summary_cards = [
+    [
+        'label' => 'Total Projects',
+        'value' => $total_projects,
+        'class' => 'card-total',
+        'href'  => 'adminprojects.php?status=all'
+    ],
+    [
+        'label' => 'Pending Projects',
+        'value' => $pending_projects,
+        'class' => 'card-pending',
+        'href'  => 'adminprojects.php?status=pending'
+    ],
+    [
+        'label' => 'Approved Projects',
+        'value' => $approved_projects,
+        'class' => 'card-approved',
+        'href'  => 'adminprojects.php?status=approved'
+    ],
+    [
+        'label' => 'Denied Projects',
+        'value' => $denied_projects,
+        'class' => 'card-denied',
+        'href'  => 'adminprojects.php?status=denied'
+    ],
+    [
+        'label' => 'Pending Community Requests',
+        'value' => $pending_requests,
+        'class' => 'card-community',
+        'href'  => 'admin_community_requests.php?status=pending'
+    ]
+];
 ?>
 
 <!DOCTYPE html>
@@ -58,6 +91,17 @@ for ($i = 6; $i >= 0; $i--) {
             color: #fff;
             text-align: center;
             box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .summary-card-link {
+            flex: 1;
+            min-width: 180px;
+            text-decoration: none;
+            color: inherit;
+        }
+        .summary-card-link:hover .summary-card {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 18px rgba(0,0,0,0.14);
         }
         .card-total { background:#0c90b4; }
         .card-pending { background:#fbc02d; color:#000; }
@@ -78,46 +122,23 @@ for ($i = 6; $i >= 0; $i--) {
 
 <div class="row">
 
-    <!-- SIDEBAR -->
     <div class="col-3">
         <?php include "adminmenu.php"; ?>
     </div>
 
-    <!-- MAIN CONTENT -->
     <div class="col-9">
 
-        <!-- SUMMARY CARDS -->
         <div class="summary-cards">
-
-            <div class="summary-card card-total">
-                <h3>Total Projects</h3>
-                <h2><?= $total_projects ?></h2>
-            </div>
-
-            <div class="summary-card card-pending">
-                <h3>Pending Projects</h3>
-                <h2><?= $pending_projects ?></h2>
-            </div>
-
-            <div class="summary-card card-approved">
-                <h3>Approved Projects</h3>
-                <h2><?= $approved_projects ?></h2>
-            </div>
-
-            <div class="summary-card card-denied">
-                <h3>Denied Projects</h3>
-                <h2><?= $denied_projects ?></h2>
-            </div>
-
-            <!-- ✅ NEW CARD (ADDED ONLY) -->
-            <div class="summary-card card-community">
-                <h3>Pending Community Requests</h3>
-                <h2><?= $pending_requests ?></h2>
-            </div>
-
+            <?php foreach ($summary_cards as $card): ?>
+                <a class="summary-card-link" href="<?= $card['href'] ?>">
+                    <div class="summary-card <?= $card['class'] ?>">
+                        <h3><?= $card['label'] ?></h3>
+                        <h2><?= $card['value'] ?></h2>
+                    </div>
+                </a>
+            <?php endforeach; ?>
         </div>
 
-        <!-- LINE CHART -->
         <h3>Projects Created in Last 7 Days</h3>
         <canvas id="projectsLineChart"></canvas>
 
@@ -154,7 +175,7 @@ new Chart(ctx, {
                     label: function(context) {
                         const titles = projectsTitles[context.dataIndex];
                         return titles.length
-                            ? titles.map(t => `• ${t}`).join('\n')
+                            ? titles.map(t => '- ' + t).join('\n')
                             : 'No projects';
                     }
                 }

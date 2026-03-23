@@ -4,11 +4,18 @@ require "../config/db.php";
 
 /* ================= SECURITY ================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
 /* ================= FETCH COMMUNITY REQUESTS ================= */
+$status = $_GET['status'] ?? 'all';
+$allowed_statuses = ['all', 'pending', 'reviewed'];
+
+if (!in_array($status, $allowed_statuses, true)) {
+    $status = 'all';
+}
+
 $sql = "
 SELECT 
     cr.id,
@@ -21,19 +28,31 @@ SELECT
     u.username
 FROM community_requests cr
 JOIN users u ON u.id = cr.user_id
-ORDER BY cr.created_at DESC
 ";
+
+if ($status !== 'all') {
+    $safe_status = $conn->real_escape_string($status);
+    $sql .= " WHERE cr.status = '{$safe_status}'";
+}
+
+$sql .= " ORDER BY cr.created_at DESC";
 
 $result = $conn->query($sql);
 if (!$result) {
     die("SQL ERROR: " . $conn->error);
 }
+
+$heading_map = [
+    'all' => 'Community Requests',
+    'pending' => 'Pending Community Requests',
+    'reviewed' => 'Reviewed Community Requests'
+];
 ?>
 
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Community Requests</title>
+    <title><?= $heading_map[$status] ?></title>
     <link rel="stylesheet" href="../assets/css/flexible.css">
 </head>
 <body>
@@ -48,7 +67,12 @@ if (!$result) {
 
     <div class="col-9">
         <div class="form-card">
-            <h3>Community Requests</h3>
+            <h3><?= $heading_map[$status] ?></h3>
+            <p>
+                <a href="admin_community_requests.php?status=all">All</a> |
+                <a href="admin_community_requests.php?status=pending">Pending</a> |
+                <a href="admin_community_requests.php?status=reviewed">Reviewed</a>
+            </p>
 
             <div class="table-wrap">
                 <table class="dashboard-table">
@@ -98,7 +122,7 @@ if (!$result) {
                                         Mark Reviewed
                                     </a>
                                 <?php else: ?>
-                                    —
+                                    <span style="color:gray;">Completed</span>
                                 <?php endif; ?>
                             </td>
                         </tr>

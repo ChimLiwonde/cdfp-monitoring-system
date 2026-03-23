@@ -1,10 +1,11 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 /* ======================= SECURITY ======================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -14,6 +15,7 @@ $user_id = $_SESSION['user_id'];
 $counts = [
     'pending'   => 0,
     'approved'  => 0,
+    'in_progress' => 0,
     'completed' => 0,
     'denied'    => 0
 ];
@@ -61,7 +63,7 @@ $budget_q = $conn->query("
     FROM projects p
     JOIN project_stages ps ON ps.project_id = p.id
     WHERE p.created_by = $user_id
-      AND p.status = 'approved'
+      AND p.status IN ('approved', 'in_progress', 'completed')
     GROUP BY p.id
 ");
 
@@ -107,11 +109,14 @@ $contractor_status = $conn->query("
     JOIN projects p ON p.id = cp.project_id
     WHERE cp.assigned_by = $user_id
 ");
+
+$success_message = $_SESSION['success_message'] ?? '';
+unset($_SESSION['success_message']);
 ?>
 <!DOCTYPE html>
 <html>
 <head>
-<title>Field Officer Dashboard</title>
+<title>Project Panel</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="../assets/css/flexible.css">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -125,6 +130,12 @@ $contractor_status = $conn->query("
 
 <div class="col-9">
 
+<?php if ($success_message): ?>
+<div class="form-card" style="margin-bottom:15px;">
+    <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+</div>
+<?php endif; ?>
+
 <!-- ======================= SUMMARY CARDS ======================= -->
 <div class="row">
 <?php
@@ -132,6 +143,7 @@ $cards = [
     'Total Projects' => $totalProjects,
     'Pending'        => $counts['pending'],
     'Approved'       => $counts['approved'],
+    'In Progress'    => $counts['in_progress'],
     'Completed'      => $counts['completed'],
     'Denied'         => $counts['denied']
 ];
@@ -157,7 +169,7 @@ foreach ($cards as $t => $v):
 
 <div class="col-6">
 <div class="form-card">
-<h3>Budget vs Spending (Approved)</h3>
+<h3>Budget vs Spending (Active Projects)</h3>
 <canvas id="budgetLine"></canvas>
 </div>
 </div>
@@ -172,7 +184,7 @@ foreach ($cards as $t => $v):
                         <p>No approved or in-progress projects yet.</p>
                     <?php else: ?>
                         <?php foreach ($progress_data as $p): ?>
-                            <strong><?= htmlspecialchars($p['title']) ?></strong>
+                            <strong><?= formatProjectCode($p['id']) ?> - <?= htmlspecialchars($p['title']) ?></strong>
                             <div style="background:#ddd;width:100%;height:20px;border-radius:5px;margin-bottom:5px;">
                                 <div style="
                                     width:<?= $p['percent'] ?>%;
@@ -182,7 +194,7 @@ foreach ($cards as $t => $v):
                                 "></div>
                             </div>
                             <span><?= $p['percent'] ?>% Completed</span> &nbsp;|&nbsp;
-                            <a href="view_stages.php?project_id=<?= $p['id'] ?>">View Stages</a>
+                            <a href="view_stages.php?project_id=<?= $p['id'] ?>">View Status</a>
                             <br><br>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -198,10 +210,17 @@ foreach ($cards as $t => $v):
 
 <table class="dashboard-table">
 <tr>
+<th>Project ID</th>
 <th>Contractor</th>
 <th>Project</th>
 <th>Status</th>
 </tr>
+
+<?php if ($contractor_status->num_rows === 0): ?>
+<tr>
+<td colspan="4" style="text-align:center;color:gray;">No contractor assignments yet.</td>
+</tr>
+<?php endif; ?>
 
 <?php while($c = $contractor_status->fetch_assoc()): 
     // Get project stage info
@@ -213,17 +232,18 @@ foreach ($cards as $t => $v):
     ")->fetch_assoc();
 
     if ($stage_info['total'] > 0 && $stage_info['total'] == $stage_info['completed']) {
-        $display_status = "🏁 Completed";
+        $display_status = "Completed";
     } else {
         $project_status = $conn->query("
             SELECT status FROM projects WHERE id={$c['project_id']}
         ")->fetch_assoc();
-        if ($project_status['status'] === 'pending') $display_status = "⏳ Waiting for approval";
-        elseif ($project_status['status'] === 'approved') $display_status = "✅ Approved";
-        else $display_status = ucfirst($project_status['status']);
+        if ($project_status['status'] === 'pending') $display_status = "Waiting for approval";
+        elseif ($project_status['status'] === 'approved') $display_status = "Approved";
+        else $display_status = formatStatusLabel($project_status['status']);
     }
 ?>
 <tr>
+<td><?= formatProjectCode($c['project_id']) ?></td>
 <td><?= htmlspecialchars($c['contractor']) ?></td>
 <td><?= htmlspecialchars($c['project']) ?></td>
 <td><?= $display_status ?></td>
@@ -245,15 +265,16 @@ foreach ($cards as $t => $v):
 new Chart(statusPie,{
 type:'pie',
 data:{
-labels:['Pending','Approved','Completed','Denied'],
+labels:['Pending','Approved','In Progress','Completed','Denied'],
 datasets:[{
 data:[
 <?= $counts['pending'] ?>,
 <?= $counts['approved'] ?>,
+<?= $counts['in_progress'] ?>,
 <?= $counts['completed'] ?>,
 <?= $counts['denied'] ?>
 ],
-backgroundColor:['#f57c00','#2e7d32','#1565c0','#d32f2f']
+backgroundColor:['#f57c00','#2e7d32','#0288d1','#1565c0','#d32f2f']
 }]
 }
 });

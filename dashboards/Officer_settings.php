@@ -6,7 +6,7 @@ require "../config/db.php";
    SECURITY CHECK
 =========================== */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 

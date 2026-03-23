@@ -1,14 +1,14 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 $message = "";
 
-/* ============================
-   HARD-CODED DEFAULT ADMIN
-============================ */
-$default_admin_user = "admin";
-$default_admin_pass = "admin123";
+if (isset($_SESSION['role'])) {
+    header("Location: ../dashboards/home.php");
+    exit();
+}
 
 if (isset($_POST['login'])) {
 
@@ -16,28 +16,15 @@ if (isset($_POST['login'])) {
     $password = trim($_POST['user_password']);
 
     /* ============================
-       DEFAULT ADMIN LOGIN
-    ============================ */
-    if ($username === $default_admin_user && $password === $default_admin_pass) {
-
-        $_SESSION['user_id']  = 0; // not in DB
-        $_SESSION['username'] = "Administrator";
-        $_SESSION['role']     = "admin";
-
-        header("Location: ../dashboards/admin.php");
-        exit();
-    }
-
-    /* ============================
        DATABASE USERS LOGIN
     ============================ */
     $stmt = $conn->prepare("
         SELECT id, username, password, role 
         FROM users 
-        WHERE username = ?
+        WHERE username = ? OR email = ?
         LIMIT 1
     ");
-    $stmt->bind_param("s", $username);
+    $stmt->bind_param("ss", $username, $username);
     $stmt->execute();
     $result = $stmt->get_result();
 
@@ -49,24 +36,15 @@ if (isset($_POST['login'])) {
             $_SESSION['username'] = $user['username'];
             $_SESSION['role']     = $user['role'];
 
-            /* ============================
-               ROLE REDIRECTION
-            ============================ */
-            if ($user['role'] === 'admin') {
-                header("Location: ../dashboards/admin.php");
-            } elseif ($user['role'] === 'field_officer') {
-                header("Location: ../dashboards/field_officer.php");
-            } else {
-                header("Location: ../dashboards/public.php");
-            }
+            header("Location: ../dashboards/home.php");
             exit();
 
         } else {
-            $message = "Invalid password";
+            $message = "Invalid username/email or password";
         }
 
     } else {
-        $message = "User not found";
+        $message = "Invalid username/email or password";
     }
 }
 ?>
@@ -93,13 +71,14 @@ if (isset($_POST['login'])) {
         <div class="form-card">
 
             <h3>Login</h3>
+            <p>Login once and the system will open the correct workspace for your role automatically.</p>
 
             <?php if ($message): ?>
                 <div class="msg"><?= $message ?></div>
             <?php endif; ?>
 
             <form method="POST">
-                <label>Username</label>
+                <label>Username or Email</label>
                 <input type="text" name="user_name" required>
 
                 <label>Password</label>

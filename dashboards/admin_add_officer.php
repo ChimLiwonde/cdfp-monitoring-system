@@ -4,7 +4,7 @@ require "../config/db.php";
 require "../config/mail.php";
 
 if ($_SESSION['role'] !== 'admin') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 

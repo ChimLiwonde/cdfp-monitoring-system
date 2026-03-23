@@ -1,10 +1,11 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 /* ================= SECURITY ================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'public') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -13,6 +14,7 @@ $user_id = $_SESSION['user_id'];
 /* ================= FETCH COMMENTS ================= */
 $stmt = $conn->prepare("
     SELECT 
+        p.id AS project_id,
         pc.comment,
         pc.admin_reply,
         pc.created_at,
@@ -53,7 +55,7 @@ $comments = $stmt->get_result();
 <?php while ($c = $comments->fetch_assoc()): ?>
 
     <div class="chat-project">
-        📌 <?= htmlspecialchars($c['title']) ?>
+        <?= formatProjectCode($c['project_id']) ?> - <?= htmlspecialchars($c['title']) ?>
     </div>
 
     <!-- USER COMMENT -->

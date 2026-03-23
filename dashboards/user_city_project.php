@@ -1,10 +1,11 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 /* ================= SECURITY ================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'public') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -86,7 +87,7 @@ $projects = $stmt->get_result();
             <!-- TITLE + STATUS -->
             <div class="row">
                 <div class="col-8">
-                    <h3><?= htmlspecialchars($p['title']) ?></h3>
+                    <h3><?= formatProjectCode($p['id']) ?> - <?= htmlspecialchars($p['title']) ?></h3>
                 </div>
                 <div class="col-4" style="text-align:right;">
                     <span class="public-badge <?= $p['status'] ?>">

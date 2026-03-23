@@ -1,12 +1,13 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 /* ===========================
    SECURITY CHECK
 =========================== */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -15,7 +16,7 @@ $msg = "";
 
 /* ===========================
    FETCH AVAILABLE PROJECTS
-   - Pending or Approved
+   - Pending, Approved, or In Progress
    - Not completed
    - Not already assigned to an ACTIVE contractor
 =========================== */
@@ -23,7 +24,7 @@ $projects = $conn->query("
     SELECT p.id, p.title
     FROM projects p
     WHERE p.created_by = $user_id
-      AND (p.status = 'pending' OR p.status = 'approved')
+      AND p.status IN ('pending', 'approved', 'in_progress')
       AND p.id NOT IN (
           SELECT cp.project_id
           FROM contractor_projects cp
@@ -72,7 +73,29 @@ if (isset($_POST['assign_contractor'])) {
     $stmt->bind_param("iii", $contractor_id, $project_id, $user_id);
 
     if ($stmt->execute()) {
-        $msg = "Contractor assigned successfully.";
+        $detailStmt = $conn->prepare("
+            SELECT c.name AS contractor_name, p.title AS project_title
+            FROM contractors c
+            JOIN projects p ON p.id = ?
+            WHERE c.id = ?
+            LIMIT 1
+        ");
+        $detailStmt->bind_param("ii", $project_id, $contractor_id);
+        $detailStmt->execute();
+        $detail = $detailStmt->get_result()->fetch_assoc();
+
+        logProjectActivity(
+            $conn,
+            $project_id,
+            'contractor_assigned',
+            $user_id,
+            $_SESSION['role'] ?? 'field_officer',
+            null,
+            null,
+            ($detail ? $detail['contractor_name'] : 'Contractor') . " assigned to project."
+        );
+
+        $msg = "Contractor assigned successfully to " . formatProjectCode($project_id) . ".";
     } else {
         $msg = "Failed to assign contractor.";
     }
@@ -153,7 +176,7 @@ if (isset($_POST['add_new_contractor'])) {
         } else {
             while ($p = $projects->fetch_assoc()) {
                 echo "<option value='{$p['id']}'>" .
-                     htmlspecialchars($p['title']) .
+                     htmlspecialchars(formatProjectCode($p['id']) . ' - ' . $p['title']) .
                      "</option>";
             }
         }

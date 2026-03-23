@@ -1,9 +1,10 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -48,6 +49,7 @@ $result = $stmt->get_result();
 
 <table class="dashboard-table">
 <tr>
+    <th>Project ID</th>
     <th>Project</th>
     <th>District</th>
     <th>Status</th>
@@ -90,6 +92,7 @@ while ($row = $result->fetch_assoc()) {
     }
 ?>
 <tr>
+    <td><?= formatProjectCode($project_id) ?></td>
     <td><?= htmlspecialchars($row['title']) ?></td>
     <td><?= htmlspecialchars($row['district']) ?></td>
     <td class="<?= $statusClass ?>"><?= ucfirst(str_replace('_',' ',$final_status)) ?></td>
@@ -100,7 +103,7 @@ while ($row = $result->fetch_assoc()) {
             echo "<a href='edit_project.php?id=$project_id'>Edit</a>";
         }
         elseif (in_array($final_status,['approved','in_progress'])) {
-            echo "<a href='view_stages.php?project_id=$project_id'>Manage Stages</a>";
+            echo "<a href='view_stages.php?project_id=$project_id'>Manage Status</a>";
         }
         elseif ($final_status === 'completed') {
             echo "<a href='view_project_details.php?id=$project_id'>View Details</a>";

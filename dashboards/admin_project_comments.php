@@ -1,10 +1,11 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 /* ================= SECURITY ================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -12,6 +13,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 $sql = "
 SELECT 
     pc.id,
+    p.id AS project_id,
     pc.comment,
     pc.admin_reply,
     pc.created_at,
@@ -71,7 +73,11 @@ if (!$result) {
                     <?php while ($row = $result->fetch_assoc()): ?>
                         <tr>
                             <td><?= $row['id'] ?></td>
-                            <td><?= htmlspecialchars($row['project_title']) ?></td>
+                            <td>
+                                <a href="admin_project_details.php?id=<?= $row['project_id'] ?>">
+                                    <?= formatProjectCode($row['project_id']) ?> - <?= htmlspecialchars($row['project_title']) ?>
+                                </a>
+                            </td>
                             <td><?= htmlspecialchars($row['username']) ?></td>
                             <td><?= nl2br(htmlspecialchars($row['comment'])) ?></td>
                             <td>

@@ -1,10 +1,11 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 /* SECURITY: ONLY FIELD OFFICERS */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -62,6 +63,19 @@ if (isset($_POST['save_project'])) {
         $map->bind_param("iss", $project_id, $latitude, $longitude);
         $map->execute();
     }
+
+    logProjectActivity(
+        $conn,
+        $project_id,
+        'project_created',
+        $user_id,
+        $_SESSION['role'] ?? 'field_officer',
+        null,
+        'pending',
+        'Project created and submitted for review.'
+    );
+
+    $_SESSION['success_message'] = "Project " . formatProjectCode($project_id) . " created successfully.";
 
     header("Location: field_officer.php");
     exit();

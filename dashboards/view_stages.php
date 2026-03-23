@@ -1,9 +1,10 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 if(!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer'){
-    header("Location: ../login.php");
+    header("Location: ../Pages/login.php");
     exit();
 }
 
@@ -22,11 +23,14 @@ $stages_stmt = $conn->prepare("SELECT * FROM project_stages WHERE project_id=? O
 $stages_stmt->bind_param("i", $project_id);
 $stages_stmt->execute();
 $stages = $stages_stmt->get_result();
+
+$success_message = $_SESSION['success_message'] ?? '';
+unset($_SESSION['success_message']);
 ?>
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Project Stages</title>
+    <title>Project Status</title>
     <link rel="stylesheet" href="../assets/css/flexible.css">
 </head>
 <body>
@@ -35,11 +39,15 @@ $stages = $stages_stmt->get_result();
     <div class="col-3"><?php include "menu.php"; ?></div>
     <div class="col-9">
         <div class="form-card">
-            <h3>Stages for Project: <?php echo $project['title']; ?></h3>
+            <h3>Project Status for <?= formatProjectCode($project['id']) ?> - <?= htmlspecialchars($project['title']) ?></h3>
+
+            <?php if ($success_message): ?>
+                <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+            <?php endif; ?>
 
             <table class="dashboard-table">
                 <tr>
-                    <th>Stage Name</th>
+                    <th>Status Item</th>
                     <th>Planned Start</th>
                     <th>Planned End</th>
                     <th>Actual Start</th>
@@ -55,22 +63,22 @@ $stages = $stages_stmt->get_result();
                     $overbudget = ($row['spent_budget'] > $row['allocated_budget']) ? 'Yes' : 'No';
                 ?>
                 <tr>
-                    <td><?php echo $row['stage_name']; ?></td>
-                    <td><?php echo $row['planned_start']; ?></td>
-                    <td><?php echo $row['planned_end']; ?></td>
-                    <td><?php echo $row['actual_start'] ?? '-'; ?></td>
-                    <td><?php echo $row['actual_end'] ?? '-'; ?></td>
-                    <td><?php echo "Allocated: ".$row['allocated_budget']." / Spent: ".$row['spent_budget']; ?></td>
-                    <td><?php echo ucfirst(str_replace('_',' ',$row['status'])); ?></td>
-                    <td><?php echo $overdue=='Yes' || $overbudget=='Yes' ? "Overdue: $overdue, OverBudget: $overbudget" : "No"; ?></td>
-                    <td><a href="update_stage.php?id=<?php echo $row['id']; ?>">Update</a></td>
+                    <td><?= htmlspecialchars($row['stage_name']) ?></td>
+                    <td><?= htmlspecialchars($row['planned_start']) ?></td>
+                    <td><?= htmlspecialchars($row['planned_end']) ?></td>
+                    <td><?= htmlspecialchars($row['actual_start'] ?? '-') ?></td>
+                    <td><?= htmlspecialchars($row['actual_end'] ?? '-') ?></td>
+                    <td><?= "Allocated: ".$row['allocated_budget']." / Spent: ".$row['spent_budget'] ?></td>
+                    <td><?= htmlspecialchars(formatStatusLabel($row['status'])) ?></td>
+                    <td><?= $overdue=='Yes' || $overbudget=='Yes' ? "Overdue: $overdue, OverBudget: $overbudget" : "No" ?></td>
+                    <td><a href="update_stage.php?id=<?php echo $row['id']; ?>">Update Status</a></td>
                 </tr>
                 <?php endwhile; ?>
 
             </table>
 
             <div style="text-align:center; margin-top:10px;">
-                <a href="field_officer.php" class="back-btn">← Back to Dashboard</a>
+                <a href="field_officer.php" class="back-btn">Back to Project Panel</a>
             </div>
         </div>
     </div>
