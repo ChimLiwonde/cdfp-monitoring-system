@@ -9,15 +9,18 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 
 $id = intval($_GET['id']);
 $user = $conn->query("SELECT * FROM users WHERE id=$id")->fetch_assoc();
-if (!$user) { header("Location: manage_users.php"); exit(); }
+if (!$user) {
+    header("Location: manage_users.php");
+    exit();
+}
 
 $msg = "";
 
 if (isset($_POST['update_user'])) {
     $username = $_POST['username'];
-    $email    = $_POST['email'];
+    $email = $_POST['email'];
     $location = $_POST['location'];
-    $role     = $_POST['role'];
+    $role = $_POST['role'];
 
     if (!empty($_POST['password'])) {
         $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
@@ -56,23 +59,24 @@ if (isset($_POST['update_user'])) {
 <div class="form-card">
 
 <h3>Edit User</h3>
-<?php if($msg) echo "<div class='msg'>$msg</div>"; ?>
+<?php if ($msg) echo "<div class='msg'>$msg</div>"; ?>
 
 <form method="POST">
     Username
-    <input type="text" name="username" value="<?= $user['username'] ?>" required>
+    <input type="text" name="username" value="<?= htmlspecialchars($user['username']) ?>" required>
 
     Email
-    <input type="email" name="email" value="<?= $user['email'] ?>" required>
+    <input type="email" name="email" value="<?= htmlspecialchars($user['email']) ?>" required>
 
     Location
-    <input type="text" name="location" value="<?= $user['location'] ?>" required>
+    <input type="text" name="location" value="<?= htmlspecialchars($user['location']) ?>" required>
 
     Role
     <select name="role">
-        <option value="public" <?= $user['role']=='public'?'selected':'' ?>>Public</option>
-        <option value="field_officer" <?= $user['role']=='field_officer'?'selected':'' ?>>Field Officer</option>
-        <option value="admin" <?= $user['role']=='admin'?'selected':'' ?>>Admin</option>
+        <option value="public" <?= $user['role'] == 'public' ? 'selected' : '' ?>>Public</option>
+        <option value="field_officer" <?= $user['role'] == 'field_officer' ? 'selected' : '' ?>>Field Officer</option>
+        <option value="project_manager" <?= $user['role'] == 'project_manager' ? 'selected' : '' ?>>Project Manager</option>
+        <option value="admin" <?= $user['role'] == 'admin' ? 'selected' : '' ?>>Admin</option>
     </select>
 
     New Password (leave blank to keep current)
@@ -85,6 +89,6 @@ if (isset($_POST['update_user'])) {
 </div>
 </div>
 
-<div class="dashboard-footer">© 2025 CDF Monitoring System</div>
+<div class="dashboard-footer">(c) 2025 CDF Monitoring System</div>
 </body>
 </html>

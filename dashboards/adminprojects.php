@@ -111,7 +111,7 @@ unset($_SESSION['success_message']);
             </p>
 
             <p style="margin-bottom: 15px; color: #555;">
-                Each project remains linked to the field officer who created it, so approval history stays tied to one owner.
+                Each project remains linked to the project lead who created it, so approval history stays tied to one owner.
             </p>
 
             <div class="table-wrap">
@@ -122,7 +122,7 @@ unset($_SESSION['success_message']);
                         <th>District</th>
                         <th>Status</th>
                         <th>Map Location</th>
-                        <th>Field Officer</th>
+                        <th>Project Lead</th>
                         <th>Contractor</th>
                         <th>Total Budget (MWK)</th>
                         <th>Document</th>

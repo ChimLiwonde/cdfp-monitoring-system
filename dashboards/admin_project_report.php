@@ -272,7 +272,7 @@ if ($report_type === 'financial') {
             <th>Project</th>
             <th>District</th>
             <th>Location</th>
-            <th>Field Officer</th>
+            <th>Project Lead</th>
             <th>Status</th>
             <th>Status Items</th>
             <th>Progress</th>
@@ -306,7 +306,7 @@ if ($report_type === 'financial') {
         <tr>
             <th>Project ID</th>
             <th>Project</th>
-            <th>Field Officer</th>
+            <th>Project Lead</th>
             <th>Status</th>
             <th>Total Budget</th>
             <th>Allocated to Status Items</th>

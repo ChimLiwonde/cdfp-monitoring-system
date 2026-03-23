@@ -14,7 +14,7 @@ header("Content-Type: application/vnd.ms-excel");
 header("Content-Disposition: attachment; filename=" . $report_type . "_report.xls");
 
 if ($report_type === 'financial') {
-    echo "Project ID\tProject\tField Officer\tStatus\tTotal Budget\tAllocated\tSpent\tRemaining\tExpense Entries\tOver Budget Status Items\n";
+    echo "Project ID\tProject\tProject Lead\tStatus\tTotal Budget\tAllocated\tSpent\tRemaining\tExpense Entries\tOver Budget Status Items\n";
 
     $query = $conn->query("
         SELECT
@@ -61,7 +61,7 @@ if ($report_type === 'financial') {
             $row['over_budget_items'] . "\n";
     }
 } else {
-    echo "Project ID\tProject\tField Officer\tStatus\tTotal Status Items\tCompleted Items\tActive Items\tProgress Percent\tOverdue Items\n";
+    echo "Project ID\tProject\tProject Lead\tStatus\tTotal Status Items\tCompleted Items\tActive Items\tProgress Percent\tOverdue Items\n";
 
     $query = $conn->query("
         SELECT

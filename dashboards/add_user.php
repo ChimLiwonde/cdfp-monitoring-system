@@ -11,9 +11,9 @@ $msg = "";
 
 if (isset($_POST['save_user'])) {
     $username = trim($_POST['username']);
-    $email    = trim($_POST['email']);
+    $email = trim($_POST['email']);
     $location = trim($_POST['location']);
-    $role     = $_POST['role'];
+    $role = $_POST['role'];
     $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
 
     $stmt = $conn->prepare("
@@ -47,7 +47,7 @@ if (isset($_POST['save_user'])) {
 <div class="form-card">
 <h3>Add New User</h3>
 
-<?php if($msg) echo "<div class='msg'>$msg</div>"; ?>
+<?php if ($msg) echo "<div class='msg'>$msg</div>"; ?>
 
 <form method="POST">
     Username
@@ -63,6 +63,7 @@ if (isset($_POST['save_user'])) {
     <select name="role" required>
         <option value="public">Public</option>
         <option value="field_officer">Field Officer</option>
+        <option value="project_manager">Project Manager</option>
         <option value="admin">Admin</option>
     </select>
 
@@ -75,6 +76,6 @@ if (isset($_POST['save_user'])) {
 </div>
 </div>
 
-<div class="dashboard-footer">© 2025 CDF Monitoring System</div>
+<div class="dashboard-footer">(c) 2025 CDF Monitoring System</div>
 </body>
 </html>

@@ -112,16 +112,16 @@ $projects = $stmt->get_result();
                     <p>
                         <strong>📍 Location:</strong> <?= htmlspecialchars($p['location']) ?><br>
                         <strong>🏘 District:</strong> <?= htmlspecialchars($p['district']) ?><br>
-                        <strong>👷 Field Officer:</strong> <?= htmlspecialchars($p['field_officer']) ?><br>
+                        <strong>Project Lead:</strong> <?= htmlspecialchars($p['field_officer']) ?><br>
                     </p>
                 </div>
 
                 <div class="col-6">
                     <p>
-                        <strong>🏗 Contractor:</strong> <?= htmlspecialchars($p['contractor_name'] ?? 'Not assigned') ?><br>
-                        <strong>🏢 Company:</strong> <?= htmlspecialchars($p['contractor_company'] ?? 'N/A') ?><br>
-                        <strong>📆 Actual Start:</strong> <?= $p['actual_start'] ?? 'N/A' ?><br>
-                        <strong>📆 Actual End:</strong> <?= $p['actual_end'] ?? 'N/A' ?>
+                        <strong>Contractor:</strong> <?= htmlspecialchars($p['contractor_name'] ?? 'Not assigned') ?><br>
+                        <strong>Company:</strong> <?= htmlspecialchars($p['contractor_company'] ?? 'N/A') ?><br>
+                        <strong>Actual Start:</strong> <?= $p['actual_start'] ?? 'N/A' ?><br>
+                        <strong>Actual End:</strong> <?= $p['actual_end'] ?? 'N/A' ?>
                     </p>
                 </div>
             </div>
@@ -143,7 +143,7 @@ $projects = $stmt->get_result();
                 </form>
             <?php else: ?>
                 <div class="msg">
-                    🔒 Comments are closed for this project. You can read feedback below.
+                    Comments are closed for this project. You can read feedback below.
                 </div>
             <?php endif; ?>
 

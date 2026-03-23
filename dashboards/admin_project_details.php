@@ -297,7 +297,7 @@ foreach ($stages as $stage) {
             <?php endif; ?>
 
             <p><span class="status-pill"><?= formatStatusLabel($project['status']) ?></span></p>
-            <p><strong>Field Officer:</strong> <?= htmlspecialchars($project['field_officer']) ?> (<?= htmlspecialchars($project['field_officer_email']) ?>)</p>
+            <p><strong>Project Lead:</strong> <?= htmlspecialchars($project['field_officer']) ?> (<?= htmlspecialchars($project['field_officer_email']) ?>)</p>
             <p><strong>District:</strong> <?= htmlspecialchars($project['district']) ?></p>
             <p><strong>Location:</strong> <?= htmlspecialchars($project['location']) ?></p>
             <p><strong>Created:</strong> <?= date("d M Y, H:i", strtotime($project['created_at'])) ?></p>
@@ -405,7 +405,7 @@ foreach ($stages as $stage) {
                     </tr>
                     <?php foreach ($collaboration_messages as $chat): ?>
                         <tr>
-                            <td><?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatStatusLabel($chat['sender_role'])) ?>)</td>
+                            <td><?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatRoleLabel($chat['sender_role'])) ?>)</td>
                             <td><?= nl2br(htmlspecialchars($chat['message'])) ?></td>
                             <td><?= date("d M Y, H:i", strtotime($chat['created_at'])) ?></td>
                         </tr>
@@ -425,10 +425,10 @@ foreach ($stages as $stage) {
                     if (!empty($activity['actor_name'])) {
                         $actor_label = $activity['actor_name'];
                         if (!empty($activity['actor_role'])) {
-                            $actor_label .= ' (' . formatStatusLabel($activity['actor_role']) . ')';
+                            $actor_label .= ' (' . formatRoleLabel($activity['actor_role']) . ')';
                         }
                     } elseif (!empty($activity['actor_role'])) {
-                        $actor_label = formatStatusLabel($activity['actor_role']);
+                        $actor_label = formatRoleLabel($activity['actor_role']);
                     }
                     ?>
                     <div class="activity-card">

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../Pages/login.php");
@@ -45,13 +46,13 @@ $result = $conn->query("
                         <th>Actions</th>
                     </tr>
 
-                    <?php while($u = $result->fetch_assoc()): ?>
+                    <?php while ($u = $result->fetch_assoc()): ?>
                     <tr>
                         <td><?= $u['id'] ?></td>
                         <td><?= htmlspecialchars($u['username']) ?></td>
                         <td><?= htmlspecialchars($u['email']) ?></td>
                         <td><?= htmlspecialchars($u['location']) ?></td>
-                        <td><strong><?= ucfirst(str_replace('_',' ', $u['role'])) ?></strong></td>
+                        <td><strong><?= htmlspecialchars(formatRoleLabel($u['role'])) ?></strong></td>
                         <td><?= date('d M Y', strtotime($u['created_at'])) ?></td>
                         <td>
                             <a href="edit_user.php?id=<?= $u['id'] ?>">Edit</a> |
@@ -69,6 +70,6 @@ $result = $conn->query("
     </div>
 </div>
 
-<div class="dashboard-footer">© 2025 CDF Monitoring System</div>
+<div class="dashboard-footer">(c) 2025 CDF Monitoring System</div>
 </body>
 </html>

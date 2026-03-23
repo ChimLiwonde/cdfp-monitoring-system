@@ -4,7 +4,7 @@ require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
 
 $role = $_SESSION['role'] ?? null;
-if (!in_array($role, ['admin', 'field_officer'], true)) {
+if ($role !== 'admin' && !isProjectLeadRole($role)) {
     header("Location: ../Pages/login.php");
     exit();
 }
@@ -176,7 +176,7 @@ $menu_file = $role === 'admin' ? 'adminmenu.php' : 'menu.php';
     <div class="col-9">
         <div class="form-card">
             <h3>Internal Project Collaboration</h3>
-            <p>This channel is private to admins and field officers. Public comments stay in the citizen feedback pages.</p>
+            <p>This channel is private to admins and project leads. Public comments stay in the citizen feedback pages.</p>
 
             <?php if ($success_message): ?>
                 <div class="msg"><?= htmlspecialchars($success_message) ?></div>
@@ -193,7 +193,7 @@ $menu_file = $role === 'admin' ? 'adminmenu.php' : 'menu.php';
                             <?php
                             $label = formatProjectCode($project['id']) . ' - ' . $project['title'] . ' (' . formatStatusLabel($project['status']) . ')';
                             if ($role === 'admin' && isset($project['field_officer'])) {
-                                $label .= ' | Officer: ' . $project['field_officer'];
+                                $label .= ' | Project Lead: ' . $project['field_officer'];
                             }
                             ?>
                             <?= htmlspecialchars($label) ?>
@@ -208,7 +208,7 @@ $menu_file = $role === 'admin' ? 'adminmenu.php' : 'menu.php';
                     <p><strong>Status:</strong> <?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?></p>
                     <p><strong>District:</strong> <?= htmlspecialchars($selected_project['district']) ?></p>
                     <p><strong>Location:</strong> <?= htmlspecialchars($selected_project['location']) ?></p>
-                    <p><strong>Field Officer:</strong> <?= htmlspecialchars($selected_project['field_officer']) ?></p>
+                    <p><strong>Project Lead:</strong> <?= htmlspecialchars($selected_project['field_officer']) ?></p>
                 </div>
 
                 <div class="form-card" style="margin-top:0;">
@@ -229,7 +229,7 @@ $menu_file = $role === 'admin' ? 'adminmenu.php' : 'menu.php';
                             <?php $chatClass = $chat['sender_role'] === 'admin' ? 'chat-role-admin' : 'chat-role-field'; ?>
                             <div class="chat-item <?= $chatClass ?>">
                                 <div class="chat-meta">
-                                    <?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatStatusLabel($chat['sender_role'])) ?>)
+                                    <?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatRoleLabel($chat['sender_role'])) ?>)
                                     | <?= date("d M Y, H:i", strtotime($chat['created_at'])) ?>
                                 </div>
                                 <div><?= nl2br(htmlspecialchars($chat['message'])) ?></div>

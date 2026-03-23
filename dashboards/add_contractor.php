@@ -6,7 +6,7 @@ require_once __DIR__ . '/../config/helpers.php';
 /* ===========================
    SECURITY CHECK
 =========================== */
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
+if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
     exit();
 }

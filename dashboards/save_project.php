@@ -3,8 +3,8 @@ session_start();
 require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
 
-/* SECURITY: ONLY FIELD OFFICERS */
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
+/* SECURITY: ONLY PROJECT LEAD ROLES */
+if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
     exit();
 }

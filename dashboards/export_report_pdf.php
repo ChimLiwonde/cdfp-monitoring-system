@@ -51,7 +51,7 @@ if ($report_type === 'financial') {
         $pdf->MultiCell(0, 7,
             "Project ID: " . formatProjectCode($row['id']) . "\n" .
             "Project: " . $row['title'] . "\n" .
-            "Field Officer: " . $row['field_officer'] . "\n" .
+            "Project Lead: " . $row['field_officer'] . "\n" .
             "Status: " . formatStatusLabel($row['project_status']) . "\n" .
             "Total Budget: MWK " . number_format((float) $row['total_budget'], 2) . "\n" .
             "Allocated to Status Items: MWK " . number_format((float) $row['allocated_total'], 2) . "\n" .
@@ -90,7 +90,7 @@ if ($report_type === 'financial') {
         $pdf->MultiCell(0, 7,
             "Project ID: " . formatProjectCode($row['id']) . "\n" .
             "Project: " . $row['title'] . "\n" .
-            "Field Officer: " . $row['field_officer'] . "\n" .
+            "Project Lead: " . $row['field_officer'] . "\n" .
             "Status: " . formatStatusLabel($row['project_status']) . "\n" .
             "Total Status Items: " . $row['total_items'] . "\n" .
             "Completed Items: " . $row['completed_items'] . "\n" .

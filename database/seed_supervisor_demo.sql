@@ -4,8 +4,15 @@
 SET @field_officer_id = (
     SELECT id
     FROM users
-    WHERE role = 'field_officer'
-    ORDER BY id
+    WHERE role IN ('project_manager', 'field_officer')
+    ORDER BY FIELD(role, 'project_manager', 'field_officer'), id
+    LIMIT 1
+);
+
+SET @field_officer_role = (
+    SELECT role
+    FROM users
+    WHERE id = @field_officer_id
     LIMIT 1
 );
 
@@ -124,22 +131,22 @@ VALUES
 
 INSERT INTO project_collaboration_messages (project_id, sender_id, sender_role, message)
 VALUES
-(@approved_project_id, @field_officer_id, 'field_officer', 'Site update: preparation is complete and drilling equipment has arrived.'),
+(@approved_project_id, @field_officer_id, @field_officer_role, 'Site update: preparation is complete and drilling equipment has arrived.'),
 (@approved_project_id, @admin_user_id, 'admin', 'Received. Keep budget updates flowing through the financial report and flag any overruns early.');
 
 INSERT INTO project_activity_log (project_id, event_type, actor_id, actor_role, old_status, new_status, notes)
 VALUES
-(@pending_project_id, 'project_created', @field_officer_id, 'field_officer', NULL, 'pending', 'Project created and submitted for admin review.'),
-(@approved_project_id, 'project_created', @field_officer_id, 'field_officer', NULL, 'pending', 'Project created and submitted for admin review.'),
+(@pending_project_id, 'project_created', @field_officer_id, @field_officer_role, NULL, 'pending', 'Project created and submitted for admin review.'),
+(@approved_project_id, 'project_created', @field_officer_id, @field_officer_role, NULL, 'pending', 'Project created and submitted for admin review.'),
 (@approved_project_id, 'project_status_changed', @admin_user_id, 'admin', 'pending', 'approved', 'Approved by admin during demo setup.'),
-(@approved_project_id, 'status_item_added', @field_officer_id, 'field_officer', NULL, 'pending', 'Initial project status items added.'),
-(@approved_project_id, 'team_member_added', @field_officer_id, 'field_officer', NULL, NULL, 'Grace Banda added to the project team.'),
-(@approved_project_id, 'team_member_added', @field_officer_id, 'field_officer', NULL, NULL, 'Peter Mbewe added to the project team.'),
-(@approved_project_id, 'task_assigned', @field_officer_id, 'field_officer', NULL, NULL, 'Site Preparation assigned to Grace Banda.'),
-(@approved_project_id, 'task_assigned', @field_officer_id, 'field_officer', NULL, NULL, 'Drilling and Pump Installation assigned to Peter Mbewe.'),
-(@approved_project_id, 'expense_recorded', @field_officer_id, 'field_officer', NULL, NULL, 'Initial expenses recorded for approved project status items.'),
-(@approved_project_id, 'collaboration_message_posted', @field_officer_id, 'field_officer', NULL, NULL, 'Internal collaboration started for project progress updates.'),
-(@approved_project_id, 'stage_status_changed', @field_officer_id, 'field_officer', 'pending', 'completed', 'Site Preparation marked completed.'),
-(@approved_project_id, 'stage_status_changed', @field_officer_id, 'field_officer', 'pending', 'in_progress', 'Drilling and Pump Installation started.'),
-(@denied_project_id, 'project_created', @field_officer_id, 'field_officer', NULL, 'pending', 'Project created and submitted for admin review.'),
+(@approved_project_id, 'status_item_added', @field_officer_id, @field_officer_role, NULL, 'pending', 'Initial project status items added.'),
+(@approved_project_id, 'team_member_added', @field_officer_id, @field_officer_role, NULL, NULL, 'Grace Banda added to the project team.'),
+(@approved_project_id, 'team_member_added', @field_officer_id, @field_officer_role, NULL, NULL, 'Peter Mbewe added to the project team.'),
+(@approved_project_id, 'task_assigned', @field_officer_id, @field_officer_role, NULL, NULL, 'Site Preparation assigned to Grace Banda.'),
+(@approved_project_id, 'task_assigned', @field_officer_id, @field_officer_role, NULL, NULL, 'Drilling and Pump Installation assigned to Peter Mbewe.'),
+(@approved_project_id, 'expense_recorded', @field_officer_id, @field_officer_role, NULL, NULL, 'Initial expenses recorded for approved project status items.'),
+(@approved_project_id, 'collaboration_message_posted', @field_officer_id, @field_officer_role, NULL, NULL, 'Internal collaboration started for project progress updates.'),
+(@approved_project_id, 'stage_status_changed', @field_officer_id, @field_officer_role, 'pending', 'completed', 'Site Preparation marked completed.'),
+(@approved_project_id, 'stage_status_changed', @field_officer_id, @field_officer_role, 'pending', 'in_progress', 'Drilling and Pump Installation started.'),
+(@denied_project_id, 'project_created', @field_officer_id, @field_officer_role, NULL, 'pending', 'Project created and submitted for admin review.'),
 (@denied_project_id, 'project_status_changed', @admin_user_id, 'admin', 'pending', 'denied', 'Denied during demo setup.');

@@ -3,8 +3,8 @@ session_start();
 require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
 
-// Ensure user is a field officer
-if(!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer'){
+// Ensure the shared project workflow is only used by project lead roles.
+if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
     exit();
 }

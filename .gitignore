@@ -6,6 +6,7 @@
 !/database/seed_supervisor_demo.sql
 !/database/add_finance_and_task_tables.sql
 !/database/add_internal_collaboration.sql
+!/database/add_project_manager_role.sql
 /uploads/*
 !/uploads/.gitkeep
 

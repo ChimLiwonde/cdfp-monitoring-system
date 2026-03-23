@@ -13,11 +13,33 @@ if (!function_exists('formatProjectCode')) {
     }
 }
 
+if (!function_exists('isProjectLeadRole')) {
+    function isProjectLeadRole($role)
+    {
+        return in_array($role, ['field_officer', 'project_manager'], true);
+    }
+}
+
+if (!function_exists('formatRoleLabel')) {
+    function formatRoleLabel($role)
+    {
+        $labels = [
+            'admin' => 'Admin',
+            'public' => 'Citizen',
+            'field_officer' => 'Field Officer',
+            'project_manager' => 'Project Manager',
+        ];
+
+        return $labels[$role] ?? ucwords(str_replace('_', ' ', (string) $role));
+    }
+}
+
 if (!function_exists('panelTitleForRole')) {
     function panelTitleForRole($role)
     {
         switch ($role) {
             case 'field_officer':
+            case 'project_manager':
                 return 'Project Panel';
             case 'public':
                 return 'Citizen Panel';
@@ -36,6 +58,7 @@ if (!function_exists('dashboardFileForRole')) {
             case 'admin':
                 return 'admin.php';
             case 'field_officer':
+            case 'project_manager':
                 return 'field_officer.php';
             case 'public':
                 return 'public.php';

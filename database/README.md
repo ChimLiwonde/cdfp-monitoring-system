@@ -15,8 +15,10 @@ Included helper scripts:
 2. `add_finance_and_task_tables.sql`
    Adds the expenditure ledger, project team members, and task-assignment tables used by the finance and task planning pages.
 3. `add_internal_collaboration.sql`
-   Adds the private project collaboration channel for internal admin and field-officer communication.
-4. `reset_demo_data.sql`
+   Adds the private project collaboration channel for internal admin and project-lead communication.
+4. `add_project_manager_role.sql`
+   Extends the `users.role` enum so the shared project workflow can support both field officers and project managers.
+5. `reset_demo_data.sql`
    Resets projects, project status items, comments, requests, maps, contractors, and activity history back to zero while keeping users.
-5. `seed_supervisor_demo.sql`
+6. `seed_supervisor_demo.sql`
    Loads a small demo dataset for supervisor review after a clean reset.

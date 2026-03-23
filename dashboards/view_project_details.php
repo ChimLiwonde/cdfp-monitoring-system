@@ -4,7 +4,7 @@ require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
 
 /* SECURITY */
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'field_officer') {
+if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
     exit();
 }
@@ -205,7 +205,7 @@ $collaboration_messages = $conn->query("
             </tr>
             <?php while ($chat = $collaboration_messages->fetch_assoc()): ?>
                 <tr>
-                    <td><?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatStatusLabel($chat['sender_role'])) ?>)</td>
+                    <td><?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatRoleLabel($chat['sender_role'])) ?>)</td>
                     <td><?= nl2br(htmlspecialchars($chat['message'])) ?></td>
                     <td><?= date("d M Y, H:i", strtotime($chat['created_at'])) ?></td>
                 </tr>

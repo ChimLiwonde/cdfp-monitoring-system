@@ -20,8 +20,9 @@ if (isset($_POST['register'])) {
         $message = "Email already exists!";
     } else {
 
-        $stmt = $conn->prepare("INSERT INTO users (username, email, password, location) VALUES (?, ?, ?, ?)");
-        $stmt->bind_param("ssss", $username, $email, $password, $location);
+        $role = 'public';
+        $stmt = $conn->prepare("INSERT INTO users (username, email, password, location, role) VALUES (?, ?, ?, ?, ?)");
+        $stmt->bind_param("sssss", $username, $email, $password, $location, $role);
 
         if ($stmt->execute()) {
             header("Location: login.php");
