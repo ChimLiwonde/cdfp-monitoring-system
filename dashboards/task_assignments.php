@@ -217,6 +217,7 @@ unset($_SESSION['success_message']);
 <html>
 <head>
     <title>Task Assignments</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/css/flexible.css">
 </head>
 <body>
@@ -225,19 +226,31 @@ unset($_SESSION['success_message']);
 
 <div class="row">
     <div class="col-3"><?php include "menu.php"; ?></div>
-    <div class="col-9">
-        <div class="form-card">
-            <h3>Task Planning and Assignments</h3>
+    <div class="col-9 dashboard-main">
+        <div class="form-card page-hero">
+            <div class="page-hero__grid">
+                <div class="page-hero__copy">
+                    <span class="eyebrow">Task Planning</span>
+                    <h3>Assign team members to project status items with clearer planning flow.</h3>
+                    <p>This page keeps team setup, task ownership, and assignment history connected to the selected project instead of scattering them across different screens.</p>
+                </div>
+                <div class="hero-pills">
+                    <div class="hero-pill"><strong>Team</strong>&nbsp; Setup</div>
+                    <div class="hero-pill"><strong>Task</strong>&nbsp; Assignment</div>
+                </div>
+            </div>
+        </div>
 
+        <div class="data-card">
             <?php if ($success_message): ?>
-                <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+                <div class="msg success"><?= htmlspecialchars($success_message) ?></div>
             <?php elseif ($message !== ''): ?>
-                <div class="msg"><?= htmlspecialchars($message) ?></div>
+                <div class="msg error"><?= htmlspecialchars($message) ?></div>
             <?php endif; ?>
 
-            <form method="GET" style="margin-bottom:20px;">
-                <label>Select Project</label>
-                <select name="project_id" onchange="this.form.submit()" required>
+            <form method="GET">
+                <label for="project_id">Select Project</label>
+                <select id="project_id" name="project_id" onchange="this.form.submit()" required>
                     <option value="">-- Select Approved or Active Project --</option>
                     <?php while ($project = $projects->fetch_assoc()): ?>
                         <option value="<?= $project['id'] ?>" <?= $project['id'] === $selected_project_id ? 'selected' : '' ?>>
@@ -246,52 +259,106 @@ unset($_SESSION['success_message']);
                     <?php endwhile; ?>
                 </select>
             </form>
+        </div>
 
-            <?php if (!$selected_project): ?>
-                <p>Select a project to manage its team members and task assignments.</p>
-            <?php else: ?>
-                <div class="form-card" style="margin:0 0 20px 0;">
-                    <h4><?= formatProjectCode($selected_project['id']) ?> - <?= htmlspecialchars($selected_project['title']) ?></h4>
-                    <p><strong>Status:</strong> <?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?></p>
-                    <p><strong>District:</strong> <?= htmlspecialchars($selected_project['district']) ?></p>
-                    <p><strong>Location:</strong> <?= htmlspecialchars($selected_project['location']) ?></p>
-                    <p><strong>Team Members:</strong> <?= count($team_members) ?> | <strong>Task Assignments:</strong> <?= count($assignments) ?></p>
-                    <?php if ($project_locked): ?>
-                        <p style="color:#d32f2f;"><strong>Completed projects are view-only for task assignments.</strong></p>
-                    <?php endif; ?>
+        <?php if (!$selected_project): ?>
+            <div class="data-card">
+                <div class="empty-state">Select a project to manage its team members and task assignments.</div>
+            </div>
+        <?php else: ?>
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Project Assignment View</span>
+                        <h3><?= formatProjectCode($selected_project['id']) ?> - <?= htmlspecialchars($selected_project['title']) ?></h3>
+                    </div>
+                    <p>Use this project context to add team members and link each one to the right status item.</p>
                 </div>
 
-                <div class="row">
-                    <div class="col-6">
-                        <div class="form-card" style="margin-top:0;">
-                            <h4>Add Team Member</h4>
-                            <form method="POST">
-                                <?= csrfInput('add_team_member_form') ?>
-                                <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <strong>Status</strong>
+                        <span class="status-badge <?= htmlspecialchars($selected_project['status']) ?>"><?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>District</strong>
+                        <span><?= htmlspecialchars($selected_project['district']) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Location</strong>
+                        <span><?= htmlspecialchars($selected_project['location']) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Team Members</strong>
+                        <span><?= count($team_members) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Task Assignments</strong>
+                        <span><?= count($assignments) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Project State</strong>
+                        <span><?= $project_locked ? 'View only' : 'Editable' ?></span>
+                    </div>
+                </div>
 
-                                Full Name
-                                <input type="text" name="full_name" required <?= $project_locked ? 'disabled' : '' ?>>
+                <?php if ($project_locked): ?>
+                    <div class="msg error" style="margin-top:16px;">Completed projects are view-only for new task assignments.</div>
+                <?php endif; ?>
+            </div>
 
-                                Role / Responsibility
-                                <input type="text" name="role_title" required <?= $project_locked ? 'disabled' : '' ?>>
-
-                                Contact Info
-                                <input type="text" name="contact_info" placeholder="Phone or email" <?= $project_locked ? 'disabled' : '' ?>>
-
-                                <input type="submit" name="add_team_member" value="Add Team Member" <?= $project_locked ? 'disabled' : '' ?>>
-                            </form>
+            <div class="section-grid">
+                <div class="data-card">
+                    <div class="section-header">
+                        <div>
+                            <span class="section-kicker">Team Setup</span>
+                            <h3>Add Team Member</h3>
                         </div>
+                        <p>Add people to the selected project before assigning them to a status item.</p>
                     </div>
 
-                    <div class="col-6">
-                        <div class="form-card" style="margin-top:0;">
-                            <h4>Assign Team Member to Status Item</h4>
-                            <form method="POST">
-                                <?= csrfInput('assign_task_form') ?>
-                                <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
+                    <form method="POST">
+                        <?= csrfInput('add_team_member_form') ?>
+                        <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
 
-                                Status Item
-                                <select name="stage_id" required <?= $project_locked ? 'disabled' : '' ?>>
+                        <div class="form-grid">
+                            <div>
+                                <label for="full_name">Full Name</label>
+                                <input id="full_name" type="text" name="full_name" required <?= $project_locked ? 'disabled' : '' ?>>
+                            </div>
+
+                            <div>
+                                <label for="role_title">Role / Responsibility</label>
+                                <input id="role_title" type="text" name="role_title" required <?= $project_locked ? 'disabled' : '' ?>>
+                            </div>
+
+                            <div class="full-span">
+                                <label for="contact_info">Contact Info</label>
+                                <input id="contact_info" type="text" name="contact_info" placeholder="Phone or email" <?= $project_locked ? 'disabled' : '' ?>>
+                            </div>
+                        </div>
+
+                        <input type="submit" name="add_team_member" value="Add Team Member" <?= $project_locked ? 'disabled' : '' ?>>
+                    </form>
+                </div>
+
+                <div class="data-card">
+                    <div class="section-header">
+                        <div>
+                            <span class="section-kicker">Assignment Flow</span>
+                            <h3>Assign Team Member to Status Item</h3>
+                        </div>
+                        <p>Link the right team member to the right project status item with optional notes.</p>
+                    </div>
+
+                    <form method="POST">
+                        <?= csrfInput('assign_task_form') ?>
+                        <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
+
+                        <div class="form-grid">
+                            <div class="full-span">
+                                <label for="stage_id">Status Item</label>
+                                <select id="stage_id" name="stage_id" required <?= $project_locked ? 'disabled' : '' ?>>
                                     <option value="">-- Select Status Item --</option>
                                     <?php foreach ($stage_options as $stage): ?>
                                         <option value="<?= $stage['id'] ?>" <?= $stage['id'] === $selected_stage_id ? 'selected' : '' ?>>
@@ -299,9 +366,11 @@ unset($_SESSION['success_message']);
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                            </div>
 
-                                Team Member
-                                <select name="team_member_id" required <?= $project_locked ? 'disabled' : '' ?>>
+                            <div class="full-span">
+                                <label for="team_member_id">Team Member</label>
+                                <select id="team_member_id" name="team_member_id" required <?= $project_locked ? 'disabled' : '' ?>>
                                     <option value="">-- Select Team Member --</option>
                                     <?php foreach ($team_members as $member): ?>
                                         <option value="<?= $member['id'] ?>">
@@ -309,77 +378,91 @@ unset($_SESSION['success_message']);
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                            </div>
 
-                                Assignment Notes
-                                <textarea name="assignment_notes" style="width:100%;min-height:100px;padding:12px;border:1px solid #90caf9;border-radius:8px;" <?= $project_locked ? 'disabled' : '' ?>></textarea>
-
-                                <input type="submit" name="assign_task" value="Assign Task" <?= $project_locked ? 'disabled' : '' ?>>
-                            </form>
+                            <div class="full-span">
+                                <label for="assignment_notes">Assignment Notes</label>
+                                <textarea id="assignment_notes" name="assignment_notes" <?= $project_locked ? 'disabled' : '' ?>></textarea>
+                            </div>
                         </div>
+
+                        <input type="submit" name="assign_task" value="Assign Task" <?= $project_locked ? 'disabled' : '' ?>>
+                    </form>
+                </div>
+            </div>
+
+            <div class="section-grid">
+                <div class="data-card">
+                    <div class="section-header">
+                        <div>
+                            <span class="section-kicker">Project Team</span>
+                            <h3>Team Members</h3>
+                        </div>
+                        <p>Everyone currently added to the selected project.</p>
                     </div>
+                    <?php if (count($team_members) === 0): ?>
+                        <div class="empty-state">No team members added yet.</div>
+                    <?php else: ?>
+                        <div class="table-wrap">
+                            <table class="dashboard-table">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Role</th>
+                                    <th>Contact</th>
+                                </tr>
+                                <?php foreach ($team_members as $member): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($member['full_name']) ?></td>
+                                        <td><?= htmlspecialchars($member['role_title']) ?></td>
+                                        <td><?= htmlspecialchars($member['contact_info'] ?: 'N/A') ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </table>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
-                <div class="row">
-                    <div class="col-6">
-                        <div class="form-card" style="margin-top:0;">
-                            <h4>Project Team Members</h4>
-                            <?php if (count($team_members) === 0): ?>
-                                <p>No team members added yet.</p>
-                            <?php else: ?>
-                                <table class="dashboard-table">
-                                    <tr>
-                                        <th>Name</th>
-                                        <th>Role</th>
-                                        <th>Contact</th>
-                                    </tr>
-                                    <?php foreach ($team_members as $member): ?>
-                                        <tr>
-                                            <td><?= htmlspecialchars($member['full_name']) ?></td>
-                                            <td><?= htmlspecialchars($member['role_title']) ?></td>
-                                            <td><?= htmlspecialchars($member['contact_info'] ?: 'N/A') ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </table>
-                            <?php endif; ?>
+                <div class="data-card">
+                    <div class="section-header">
+                        <div>
+                            <span class="section-kicker">Assignment History</span>
+                            <h3>Current Task Assignments</h3>
                         </div>
+                        <p>Review who is assigned to each status item and when the assignment was made.</p>
                     </div>
-
-                    <div class="col-6">
-                        <div class="form-card" style="margin-top:0;">
-                            <h4>Current Task Assignments</h4>
-                            <?php if (count($assignments) === 0): ?>
-                                <p>No status items have been assigned yet.</p>
-                            <?php else: ?>
-                                <table class="dashboard-table">
+                    <?php if (count($assignments) === 0): ?>
+                        <div class="empty-state">No status items have been assigned yet.</div>
+                    <?php else: ?>
+                        <div class="table-wrap">
+                            <table class="dashboard-table">
+                                <tr>
+                                    <th>Status Item</th>
+                                    <th>Assigned To</th>
+                                    <th>Notes</th>
+                                </tr>
+                                <?php foreach ($assignments as $assignment): ?>
                                     <tr>
-                                        <th>Status Item</th>
-                                        <th>Assigned To</th>
-                                        <th>Notes</th>
+                                        <td>
+                                            <?= htmlspecialchars($assignment['stage_name']) ?><br>
+                                            <small><?= htmlspecialchars(formatStatusLabel($assignment['stage_status'])) ?></small>
+                                        </td>
+                                        <td>
+                                            <?= htmlspecialchars($assignment['full_name']) ?><br>
+                                            <small><?= htmlspecialchars($assignment['role_title']) ?></small><br>
+                                            <small><?= htmlspecialchars($assignment['contact_info'] ?: 'N/A') ?></small>
+                                        </td>
+                                        <td>
+                                            <?= nl2br(htmlspecialchars($assignment['assignment_notes'] ?: 'No notes')) ?><br>
+                                            <small><?= date("d M Y, H:i", strtotime($assignment['assigned_at'])) ?></small>
+                                        </td>
                                     </tr>
-                                    <?php foreach ($assignments as $assignment): ?>
-                                        <tr>
-                                            <td>
-                                                <?= htmlspecialchars($assignment['stage_name']) ?><br>
-                                                <small><?= htmlspecialchars(formatStatusLabel($assignment['stage_status'])) ?></small>
-                                            </td>
-                                            <td>
-                                                <?= htmlspecialchars($assignment['full_name']) ?><br>
-                                                <small><?= htmlspecialchars($assignment['role_title']) ?></small><br>
-                                                <small><?= htmlspecialchars($assignment['contact_info'] ?: 'N/A') ?></small>
-                                            </td>
-                                            <td>
-                                                <?= nl2br(htmlspecialchars($assignment['assignment_notes'] ?: 'No notes')) ?><br>
-                                                <small><?= date("d M Y, H:i", strtotime($assignment['assigned_at'])) ?></small>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </table>
-                            <?php endif; ?>
+                                <?php endforeach; ?>
+                            </table>
                         </div>
-                    </div>
+                    <?php endif; ?>
                 </div>
-            <?php endif; ?>
-        </div>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 

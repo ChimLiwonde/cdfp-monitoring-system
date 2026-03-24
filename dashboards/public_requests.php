@@ -83,6 +83,7 @@ $requests = $requests->get_result();
 <html>
 <head>
 <title>Community Requests</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="stylesheet" href="../assets/css/flexible.css">
 </head>
 <body>
@@ -92,47 +93,83 @@ $requests = $requests->get_result();
 <div class="row">
     <div class="col-3"><?php include "publicmenu.php"; ?></div>
 
-    <div class="col-9 public-dashboard">
-        <div class="form-card">
-            <h3>Community Needs / Requests</h3>
+    <div class="col-9 public-dashboard dashboard-main">
+        <div class="form-card page-hero">
+            <div class="page-hero__grid">
+                <div class="page-hero__copy">
+                    <span class="eyebrow">Community Requests</span>
+                    <h3>Share local needs from <?= htmlspecialchars($district) ?></h3>
+                    <p>Submit a request from your district and track whether it has been reviewed, together with any notes left by the admin team.</p>
+                </div>
+                <div class="hero-pills">
+                    <div class="hero-pill"><strong><?= htmlspecialchars($district) ?></strong>&nbsp; District</div>
+                    <div class="hero-pill"><strong>Citizen</strong>&nbsp; Input</div>
+                </div>
+            </div>
+        </div>
 
+        <div class="data-card">
             <?php if ($message): ?>
-                <div class="msg"><?= htmlspecialchars($message) ?></div>
+                <div class="msg success"><?= htmlspecialchars($message) ?></div>
             <?php endif; ?>
 
             <?php if ($error): ?>
                 <div class="msg error"><?= htmlspecialchars($error) ?></div>
             <?php endif; ?>
 
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">New Request</span>
+                    <h3>Submit Community Need</h3>
+                </div>
+                <p>Requests are tied to your district automatically so they reach the right review queue.</p>
+            </div>
+
             <form method="POST">
                 <?= csrfInput('public_request_form') ?>
-                <label>Request Title</label>
-                <input type="text" name="title" required>
 
-                <label>District</label>
-                <input type="text" value="<?= htmlspecialchars($district) ?>" readonly>
+                <div class="form-grid">
+                    <div class="full-span">
+                        <label for="title">Request Title</label>
+                        <input id="title" type="text" name="title" required>
+                    </div>
 
-                <label>Area / Location</label>
-                <select name="area" required>
-                    <option value="">-- Select Area --</option>
-                    <?php foreach ($availableAreas as $a): ?>
-                        <option value="<?= htmlspecialchars($a) ?>"><?= htmlspecialchars($a) ?></option>
-                    <?php endforeach; ?>
-                </select>
+                    <div>
+                        <label for="district_display">District</label>
+                        <input id="district_display" type="text" value="<?= htmlspecialchars($district) ?>" readonly>
+                    </div>
 
-                <label>Description</label>
-                <textarea name="description" required></textarea>
+                    <div>
+                        <label for="area">Area / Location</label>
+                        <select id="area" name="area" required>
+                            <option value="">-- Select Area --</option>
+                            <?php foreach ($availableAreas as $a): ?>
+                                <option value="<?= htmlspecialchars($a) ?>"><?= htmlspecialchars($a) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
 
-                <br>
+                    <div class="full-span">
+                        <label for="description">Description</label>
+                        <textarea id="description" name="description" required></textarea>
+                    </div>
+                </div>
+
                 <input type="submit" name="submit" value="Submit Request">
             </form>
         </div>
 
-        <div class="form-card">
-            <h3>My Submitted Requests</h3>
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Request History</span>
+                    <h3>My Submitted Requests</h3>
+                </div>
+                <p>See the full request history, current review status, and any notes returned by the admin team.</p>
+            </div>
 
             <?php if ($requests->num_rows == 0): ?>
-                <p>No requests submitted yet.</p>
+                <div class="empty-state">No requests submitted yet.</div>
             <?php endif; ?>
 
             <?php while ($r = $requests->fetch_assoc()): ?>

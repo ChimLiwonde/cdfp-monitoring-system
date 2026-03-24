@@ -68,10 +68,10 @@ if ($report_type === 'financial') {
     }
 
     $summary_cards = [
-        ['label' => 'Total Budget', 'value' => 'MWK ' . number_format($total_budget_all, 2)],
-        ['label' => 'Total Recorded Spending', 'value' => 'MWK ' . number_format($total_spent_all, 2)],
-        ['label' => 'Over Budget Projects', 'value' => $over_budget_project_count],
-        ['label' => 'Over Budget Status Items', 'value' => $over_budget_stage_count],
+        ['label' => 'Total Budget', 'value' => 'MWK ' . number_format($total_budget_all, 2), 'class' => 'card-total'],
+        ['label' => 'Total Recorded Spending', 'value' => 'MWK ' . number_format($total_spent_all, 2), 'class' => 'card-info'],
+        ['label' => 'Over Budget Projects', 'value' => $over_budget_project_count, 'class' => 'card-denied'],
+        ['label' => 'Over Budget Status Items', 'value' => $over_budget_stage_count, 'class' => 'card-pending'],
     ];
 } else {
     $sql = "
@@ -133,10 +133,10 @@ if ($report_type === 'financial') {
     }
 
     $summary_cards = [
-        ['label' => 'Projects in Active Progress', 'value' => $active_project_count],
-        ['label' => 'Completed Projects', 'value' => $completed_project_count],
-        ['label' => 'Overdue Status Items', 'value' => $overdue_item_count],
-        ['label' => 'Projects in Report', 'value' => count($report_rows)],
+        ['label' => 'Projects in Active Progress', 'value' => $active_project_count, 'class' => 'card-info'],
+        ['label' => 'Completed Projects', 'value' => $completed_project_count, 'class' => 'card-completed'],
+        ['label' => 'Overdue Status Items', 'value' => $overdue_item_count, 'class' => 'card-pending'],
+        ['label' => 'Projects in Report', 'value' => count($report_rows), 'class' => 'card-total'],
     ];
 }
 ?>
@@ -145,89 +145,11 @@ if ($report_type === 'financial') {
 <head>
 <title><?= htmlspecialchars(formatReportTypeLabel($report_type)) ?></title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <link rel="stylesheet" href="../assets/css/flexible.css">
 <?php if ($report_type === 'progress'): ?>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <?php endif; ?>
-
-<style>
-.report-switch {
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-    margin-bottom:16px;
-}
-.report-link {
-    display:inline-block;
-    padding:10px 16px;
-    border-radius:8px;
-    text-decoration:none;
-    font-weight:600;
-    background:#e3f2fd;
-}
-.report-link.active {
-    background:#1565c0;
-    color:#fff;
-}
-.summary-grid {
-    display:grid;
-    grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
-    gap:12px;
-    margin-bottom:18px;
-}
-.summary-card {
-    background:#f7fbff;
-    border:1px solid #d6eafc;
-    border-radius:10px;
-    padding:16px;
-}
-.summary-card strong {
-    display:block;
-    color:#0d47a1;
-    margin-bottom:8px;
-}
-.export-bar{
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    background:#f5f7fa;
-    padding:12px 16px;
-    border-radius:6px;
-    margin-bottom:15px;
-    border:1px solid #e0e0e0;
-    gap:12px;
-    flex-wrap:wrap;
-}
-.export-actions{
-    display:flex;
-    gap:10px;
-    flex-wrap:wrap;
-}
-.btn{
-    padding:8px 16px;
-    border-radius:5px;
-    font-size:14px;
-    font-weight:600;
-    text-decoration:none;
-    display:inline-flex;
-    align-items:center;
-}
-.btn-excel{
-    background:#1f7a1f;
-    color:#fff;
-}
-.btn-pdf{
-    background:#c62828;
-    color:#fff;
-}
-#projectMap {
-    height:380px;
-    margin-bottom:15px;
-    border-radius:6px;
-}
-</style>
 </head>
 <body>
 
@@ -235,116 +157,163 @@ if ($report_type === 'financial') {
 
 <div class="row">
 <div class="col-3"><?php include "adminmenu.php"; ?></div>
-<div class="col-9">
+<div class="col-9 dashboard-main">
 
-<div class="form-card">
-
-<h2 style="margin-bottom:20px;color:#0d47a1;"><?= htmlspecialchars(formatReportTypeLabel($report_type)) ?></h2>
-
-<div class="report-switch">
-    <a class="report-link <?= $report_type === 'progress' ? 'active' : '' ?>" href="admin_project_report.php?type=progress">Project Progress</a>
-    <a class="report-link <?= $report_type === 'financial' ? 'active' : '' ?>" href="admin_project_report.php?type=financial">Financial Budgets</a>
-</div>
-
-<div class="export-bar">
-    <div>
-        <strong>Export <?= htmlspecialchars(formatReportTypeLabel($report_type)) ?></strong><br>
-        <small><?= $report_type === 'financial' ? 'Budget control, expenses, and overrun tracking.' : 'Project completion, active work, and overdue progress tracking.' ?></small>
-    </div>
-    <div class="export-actions">
-        <a href="export_report_excel.php?type=<?= urlencode($report_type) ?>" class="btn btn-excel">Export Excel</a>
-        <a href="export_report_pdf.php?type=<?= urlencode($report_type) ?>" target="_blank" class="btn btn-pdf">Export PDF</a>
+<div class="form-card page-hero">
+    <div class="page-hero__grid">
+        <div class="page-hero__copy">
+            <span class="eyebrow">Reporting Workspace</span>
+            <h3><?= htmlspecialchars(formatReportTypeLabel($report_type)) ?></h3>
+            <p><?= $report_type === 'financial'
+                ? 'Review budget control, recorded expenditure, and overrun risks across every project.'
+                : 'Track completion rates, overdue status items, and project spread across locations.' ?></p>
+        </div>
+        <div class="hero-pills">
+            <div class="hero-pill"><strong><?= $report_type === 'financial' ? 'Financial' : 'Progress' ?></strong>&nbsp; Report</div>
+            <div class="hero-pill"><strong><?= count($report_rows) ?></strong>&nbsp; Rows</div>
+        </div>
     </div>
 </div>
 
-<div class="summary-grid">
+<div class="data-card">
+    <div class="toolbar">
+        <a class="toolbar-link <?= $report_type === 'progress' ? 'active' : '' ?>" href="admin_project_report.php?type=progress">Project Progress</a>
+        <a class="toolbar-link <?= $report_type === 'financial' ? 'active' : '' ?>" href="admin_project_report.php?type=financial">Financial Budgets</a>
+    </div>
+
+    <div class="section-header">
+        <div>
+            <span class="section-kicker">Exports</span>
+            <h3>Download This Report</h3>
+        </div>
+        <p><?= $report_type === 'financial'
+            ? 'Export budget control, expenses, and overrun tracking.'
+            : 'Export project completion, active work, and overdue progress tracking.' ?></p>
+    </div>
+
+    <div class="section-actions">
+        <a href="export_report_excel.php?type=<?= urlencode($report_type) ?>" class="button-link btn-secondary">Export Excel</a>
+        <a href="export_report_pdf.php?type=<?= urlencode($report_type) ?>" target="_blank" class="back-btn">Export PDF</a>
+    </div>
+</div>
+
+<div class="summary-cards">
     <?php foreach ($summary_cards as $card): ?>
-        <div class="summary-card">
-            <strong><?= htmlspecialchars($card['label']) ?></strong>
-            <div><?= htmlspecialchars((string) $card['value']) ?></div>
+        <div class="summary-card <?= $card['class'] ?>">
+            <h3><?= htmlspecialchars($card['label']) ?></h3>
+            <h2><?= htmlspecialchars((string) $card['value']) ?></h2>
         </div>
     <?php endforeach; ?>
 </div>
 
 <?php if ($report_type === 'progress'): ?>
-    <div id="projectMap"></div>
-    <table class="dashboard-table">
-        <tr>
-            <th>Project ID</th>
-            <th>Project</th>
-            <th>District</th>
-            <th>Location</th>
-            <th>Project Lead</th>
-            <th>Status</th>
-            <th>Status Items</th>
-            <th>Progress</th>
-            <th>Overdue Items</th>
-        </tr>
-        <?php if (count($report_rows) === 0): ?>
-            <tr>
-                <td colspan="9" style="text-align:center;color:gray;">No projects available for reporting yet.</td>
-            </tr>
-        <?php endif; ?>
-        <?php foreach ($report_rows as $row): ?>
-            <tr>
-                <td><a href="admin_project_details.php?id=<?= $row['id'] ?>"><?= formatProjectCode($row['id']) ?></a></td>
-                <td><a href="admin_project_details.php?id=<?= $row['id'] ?>"><?= htmlspecialchars($row['title']) ?></a></td>
-                <td><?= htmlspecialchars($row['district']) ?></td>
-                <td><?= htmlspecialchars($row['location']) ?></td>
-                <td><?= htmlspecialchars($row['field_officer']) ?></td>
-                <td><?= htmlspecialchars($row['final_status']) ?></td>
-                <td>
-                    Total: <?= (int) $row['total_items'] ?><br>
-                    Completed: <?= (int) $row['completed_items'] ?><br>
-                    Active: <?= (int) $row['active_items'] ?>
-                </td>
-                <td><?= (int) $row['progress_percent'] ?>%</td>
-                <td><?= (int) $row['overdue_items'] ?></td>
-            </tr>
-        <?php endforeach; ?>
-    </table>
+    <div class="data-card">
+        <div class="section-header">
+            <div>
+                <span class="section-kicker">Location View</span>
+                <h3>Project Map</h3>
+            </div>
+            <p>See where reported projects are located before drilling into the detailed progress table.</p>
+        </div>
+        <div id="projectMap" class="public-map"></div>
+    </div>
+
+    <div class="data-card">
+        <div class="section-header">
+            <div>
+                <span class="section-kicker">Progress Table</span>
+                <h3>Project Progress Report</h3>
+            </div>
+            <p>Review project status, assigned lead, completion percentage, and overdue status items in one table.</p>
+        </div>
+        <div class="table-wrap">
+            <table class="dashboard-table">
+                <tr>
+                    <th>Project ID</th>
+                    <th>Project</th>
+                    <th>District</th>
+                    <th>Location</th>
+                    <th>Project Lead</th>
+                    <th>Status</th>
+                    <th>Status Items</th>
+                    <th>Progress</th>
+                    <th>Overdue Items</th>
+                </tr>
+                <?php if (count($report_rows) === 0): ?>
+                    <tr>
+                        <td colspan="9" style="text-align:center;color:gray;">No projects available for reporting yet.</td>
+                    </tr>
+                <?php endif; ?>
+                <?php foreach ($report_rows as $row): ?>
+                    <tr>
+                        <td><a href="admin_project_details.php?id=<?= $row['id'] ?>"><?= formatProjectCode($row['id']) ?></a></td>
+                        <td><a href="admin_project_details.php?id=<?= $row['id'] ?>"><?= htmlspecialchars($row['title']) ?></a></td>
+                        <td><?= htmlspecialchars($row['district']) ?></td>
+                        <td><?= htmlspecialchars($row['location']) ?></td>
+                        <td><?= htmlspecialchars($row['field_officer']) ?></td>
+                        <td><span class="status-badge <?= htmlspecialchars($row['project_status']) ?>"><?= htmlspecialchars($row['final_status']) ?></span></td>
+                        <td>
+                            Total: <?= (int) $row['total_items'] ?><br>
+                            Completed: <?= (int) $row['completed_items'] ?><br>
+                            Active: <?= (int) $row['active_items'] ?>
+                        </td>
+                        <td><?= (int) $row['progress_percent'] ?>%</td>
+                        <td><?= (int) $row['overdue_items'] ?></td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+    </div>
 <?php else: ?>
-    <table class="dashboard-table">
-        <tr>
-            <th>Project ID</th>
-            <th>Project</th>
-            <th>Project Lead</th>
-            <th>Status</th>
-            <th>Total Budget</th>
-            <th>Allocated to Status Items</th>
-            <th>Recorded Expenses</th>
-            <th>Remaining Budget</th>
-            <th>Expense Entries</th>
-            <th>Alert</th>
-        </tr>
-        <?php if (count($report_rows) === 0): ?>
-            <tr>
-                <td colspan="10" style="text-align:center;color:gray;">No projects available for financial reporting yet.</td>
-            </tr>
-        <?php endif; ?>
-        <?php foreach ($report_rows as $row): ?>
-            <tr>
-                <td><a href="admin_project_details.php?id=<?= $row['id'] ?>"><?= formatProjectCode($row['id']) ?></a></td>
-                <td><a href="admin_project_details.php?id=<?= $row['id'] ?>"><?= htmlspecialchars($row['title']) ?></a></td>
-                <td><?= htmlspecialchars($row['field_officer']) ?></td>
-                <td><?= htmlspecialchars($row['final_status']) ?></td>
-                <td>MWK <?= number_format((float) $row['total_budget'], 2) ?></td>
-                <td>MWK <?= number_format((float) $row['allocated_total'], 2) ?></td>
-                <td>MWK <?= number_format((float) $row['spent_total'], 2) ?></td>
-                <td style="color:<?= $row['remaining_budget'] < 0 ? '#d32f2f' : '#2e7d32' ?>;">
-                    MWK <?= number_format((float) $row['remaining_budget'], 2) ?>
-                </td>
-                <td><?= (int) $row['expense_count'] ?></td>
-                <td>
-                    <?= htmlspecialchars($row['alert_status']) ?><br>
-                    <small>Over-budget status items: <?= (int) $row['over_budget_items'] ?></small>
-                </td>
-            </tr>
-        <?php endforeach; ?>
-    </table>
+    <div class="data-card">
+        <div class="section-header">
+            <div>
+                <span class="section-kicker">Financial Table</span>
+                <h3>Financial Budget Report</h3>
+            </div>
+            <p>Review total budget, stage allocations, recorded expenses, remaining budget, and overrun alerts for every project.</p>
+        </div>
+        <div class="table-wrap">
+            <table class="dashboard-table">
+                <tr>
+                    <th>Project ID</th>
+                    <th>Project</th>
+                    <th>Project Lead</th>
+                    <th>Status</th>
+                    <th>Total Budget</th>
+                    <th>Allocated to Status Items</th>
+                    <th>Recorded Expenses</th>
+                    <th>Remaining Budget</th>
+                    <th>Expense Entries</th>
+                    <th>Alert</th>
+                </tr>
+                <?php if (count($report_rows) === 0): ?>
+                    <tr>
+                        <td colspan="10" style="text-align:center;color:gray;">No projects available for financial reporting yet.</td>
+                    </tr>
+                <?php endif; ?>
+                <?php foreach ($report_rows as $row): ?>
+                    <tr>
+                        <td><a href="admin_project_details.php?id=<?= $row['id'] ?>"><?= formatProjectCode($row['id']) ?></a></td>
+                        <td><a href="admin_project_details.php?id=<?= $row['id'] ?>"><?= htmlspecialchars($row['title']) ?></a></td>
+                        <td><?= htmlspecialchars($row['field_officer']) ?></td>
+                        <td><span class="status-badge <?= htmlspecialchars($row['project_status']) ?>"><?= htmlspecialchars($row['final_status']) ?></span></td>
+                        <td>MWK <?= number_format((float) $row['total_budget'], 2) ?></td>
+                        <td>MWK <?= number_format((float) $row['allocated_total'], 2) ?></td>
+                        <td>MWK <?= number_format((float) $row['spent_total'], 2) ?></td>
+                        <td style="color:<?= $row['remaining_budget'] < 0 ? '#b74b3d' : '#1d7a4c' ?>;">MWK <?= number_format((float) $row['remaining_budget'], 2) ?></td>
+                        <td><?= (int) $row['expense_count'] ?></td>
+                        <td>
+                            <?= htmlspecialchars($row['alert_status']) ?><br>
+                            <small>Over-budget status items: <?= (int) $row['over_budget_items'] ?></small>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+    </div>
 <?php endif; ?>
 
-</div>
 </div>
 </div>
 

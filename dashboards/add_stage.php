@@ -3,7 +3,6 @@ require_once __DIR__ . '/../config/helpers.php';
 startSecureSession();
 require "../config/db.php";
 
-// Ensure the shared project workflow is only used by project lead roles.
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
     exit();
@@ -13,7 +12,6 @@ $user_id = $_SESSION['user_id'];
 $msg = "";
 $selected_project_id = (int) ($_POST['project_id'] ?? 0);
 
-// Fetch all created projects so the page stays connected to the officer's work
 $projects_stmt = $conn->prepare("
     SELECT
         p.id,
@@ -34,8 +32,7 @@ $projects_stmt->bind_param("i", $user_id);
 $projects_stmt->execute();
 $projects = $projects_stmt->get_result();
 
-// Handle form submission
-if(isset($_POST['add_stage'])){
+if (isset($_POST['add_stage'])) {
     if (!isValidCsrfToken('add_stage_form', $_POST['_csrf_token'] ?? '')) {
         $msg = "Your session expired. Please submit the status item again.";
     } else {
@@ -79,7 +76,7 @@ if(isset($_POST['add_stage'])){
                     ");
                     $stmt->bind_param("isssd", $project_id, $stage_name, $planned_start, $planned_end, $allocated_budget);
 
-                    if($stmt->execute()){
+                    if ($stmt->execute()) {
                         logProjectActivity(
                             $conn,
                             $project_id,
@@ -91,7 +88,7 @@ if(isset($_POST['add_stage'])){
                             "Status item '{$stage_name}' added with planned dates {$planned_start} to {$planned_end} and allocation of MWK " . number_format($allocated_budget, 2) . "."
                         );
 
-                        $msg = "Status item added for " . formatProjectCode($project_id) . ". Allocated Budget: MWK " . number_format($allocated_budget,2) . ". Remaining to allocate: MWK " . number_format(max($remaining_after, 0), 2) . ".";
+                        $msg = "Status item added for " . formatProjectCode($project_id) . ". Allocated Budget: MWK " . number_format($allocated_budget, 2) . ". Remaining to allocate: MWK " . number_format(max($remaining_after, 0), 2) . ".";
                     } else {
                         $msg = "Error adding status item. Please try again.";
                     }
@@ -105,67 +102,123 @@ if(isset($_POST['add_stage'])){
 <html>
 <head>
     <title>Project Status</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/css/flexible.css">
 </head>
 <body>
 <?php include "header.php"; ?>
 <div class="row">
     <div class="col-3"><?php include "menu.php"; ?></div>
-    <div class="col-9">
-        <div class="form-card">
-            <h3>Project Status / Progress Tracking</h3>
-            <?php if($msg!="") echo "<div class='msg'>" . htmlspecialchars($msg) . "</div>"; ?>
-            <p>Select any project you created to view its details. Only approved or active projects can receive new status entries.</p>
+    <div class="col-9 dashboard-main">
+        <div class="form-card page-hero">
+            <div class="page-hero__grid">
+                <div class="page-hero__copy">
+                    <span class="eyebrow">Status Planning</span>
+                    <h3>Break a project into status items with planned dates and budget allocation.</h3>
+                    <p>Select one of your projects to review its current budget picture, then add a status item only when the project is approved or already in progress.</p>
+                </div>
+                <div class="hero-pills">
+                    <div class="hero-pill"><strong>Status</strong>&nbsp; Timeline</div>
+                    <div class="hero-pill"><strong>Budget</strong>&nbsp; Allocation</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="data-card">
+            <?php if ($msg != ""): ?>
+                <div class="msg"><?= htmlspecialchars($msg) ?></div>
+            <?php endif; ?>
+
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Project Status / Progress Tracking</span>
+                    <h3>Add Project Status Item</h3>
+                </div>
+                <p>Select any project you created to view its budget picture. Only approved or active projects can receive new status entries.</p>
+            </div>
 
             <form method="POST">
                 <?= csrfInput('add_stage_form') ?>
-                <label>Select Project</label>
-                <select name="project_id" required onchange="calculateBudget(this.value)">
-                    <option value="">-- Select Project --</option>
-                    <?php while($row = $projects->fetch_assoc()): ?>
-                        <?php
-                        $project_total_budget = (float) $row['estimated_budget'] + (float) $row['contractor_fee'];
-                        $allocated_total = (float) $row['allocated_total'];
-                        $remaining_allocatable = $project_total_budget - $allocated_total;
-                        ?>
-                        <option
-                            value="<?php echo $row['id']; ?>"
-                            <?php echo $selected_project_id === (int) $row['id'] ? 'selected' : ''; ?>
-                            data-code="<?php echo htmlspecialchars(formatProjectCode($row['id'])); ?>"
-                            data-title="<?php echo htmlspecialchars($row['title']); ?>"
-                            data-district="<?php echo htmlspecialchars($row['district']); ?>"
-                            data-status="<?php echo htmlspecialchars($row['status']); ?>"
-                            data-total="<?php echo $project_total_budget; ?>"
-                            data-allocated="<?php echo $allocated_total; ?>"
-                            data-remaining="<?php echo $remaining_allocatable; ?>">
-                            <?php echo htmlspecialchars(formatProjectCode($row['id']) . ' - ' . $row['title']); ?>
-                        </option>
-                    <?php endwhile; ?>
-                </select>
 
-                <div id="projectSummary" class="form-card" style="margin:15px 0; display:none;">
-                    <h4 id="projectSummaryTitle"></h4>
-                    <p><strong>District:</strong> <span id="projectSummaryDistrict"></span></p>
-                    <p><strong>Current Status:</strong> <span id="projectSummaryStatus"></span></p>
-                    <p><strong>Total Budget:</strong> MWK <span id="projectSummaryBudget"></span></p>
-                    <p><strong>Allocated to Status Items:</strong> MWK <span id="projectSummaryAllocated"></span></p>
-                    <p><strong>Remaining to Allocate:</strong> MWK <span id="projectSummaryRemaining"></span></p>
+                <div class="form-grid">
+                    <div class="full-span">
+                        <label for="project_id">Select Project</label>
+                        <select id="project_id" name="project_id" required onchange="calculateBudget(this.value)">
+                            <option value="">-- Select Project --</option>
+                            <?php while ($row = $projects->fetch_assoc()): ?>
+                                <?php
+                                $project_total_budget = (float) $row['estimated_budget'] + (float) $row['contractor_fee'];
+                                $allocated_total = (float) $row['allocated_total'];
+                                $remaining_allocatable = $project_total_budget - $allocated_total;
+                                ?>
+                                <option
+                                    value="<?= $row['id']; ?>"
+                                    <?= $selected_project_id === (int) $row['id'] ? 'selected' : ''; ?>
+                                    data-code="<?= htmlspecialchars(formatProjectCode($row['id'])); ?>"
+                                    data-title="<?= htmlspecialchars($row['title']); ?>"
+                                    data-district="<?= htmlspecialchars($row['district']); ?>"
+                                    data-status="<?= htmlspecialchars($row['status']); ?>"
+                                    data-total="<?= $project_total_budget; ?>"
+                                    data-allocated="<?= $allocated_total; ?>"
+                                    data-remaining="<?= $remaining_allocatable; ?>">
+                                    <?= htmlspecialchars(formatProjectCode($row['id']) . ' - ' . $row['title']); ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+
+                    <div class="full-span" id="projectSummary" style="display:none;">
+                        <div class="detail-grid">
+                            <div class="detail-card">
+                                <strong>Project</strong>
+                                <span id="projectSummaryTitle"></span>
+                            </div>
+                            <div class="detail-card">
+                                <strong>District</strong>
+                                <span id="projectSummaryDistrict"></span>
+                            </div>
+                            <div class="detail-card">
+                                <strong>Current Status</strong>
+                                <span id="projectSummaryStatus"></span>
+                            </div>
+                            <div class="detail-card">
+                                <strong>Total Budget</strong>
+                                <span>MWK <span id="projectSummaryBudget"></span></span>
+                            </div>
+                            <div class="detail-card">
+                                <strong>Allocated to Status Items</strong>
+                                <span>MWK <span id="projectSummaryAllocated"></span></span>
+                            </div>
+                            <div class="detail-card">
+                                <strong>Remaining to Allocate</strong>
+                                <span>MWK <span id="projectSummaryRemaining"></span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="full-span">
+                        <label for="stage_name">Status Item Title</label>
+                        <input id="stage_name" type="text" name="stage_name" value="<?= htmlspecialchars($_POST['stage_name'] ?? '') ?>" required>
+                    </div>
+
+                    <div>
+                        <label for="planned_start">Planned Start Date</label>
+                        <input id="planned_start" type="date" name="planned_start" value="<?= htmlspecialchars($_POST['planned_start'] ?? '') ?>" required>
+                    </div>
+
+                    <div>
+                        <label for="planned_end">Planned End Date</label>
+                        <input id="planned_end" type="date" name="planned_end" value="<?= htmlspecialchars($_POST['planned_end'] ?? '') ?>" required>
+                    </div>
+
+                    <div class="full-span">
+                        <label for="allocated_budget">Allocated Budget for This Status Item</label>
+                        <input id="allocated_budget" type="number" name="allocated_budget" step="0.01" min="0.01" value="<?= htmlspecialchars($_POST['allocated_budget'] ?? '') ?>" required>
+                        <small>This allocation must fit within the remaining unallocated project budget.</small>
+                    </div>
                 </div>
 
-                <label>Status Item Title</label>
-                <input type="text" name="stage_name" value="<?= htmlspecialchars($_POST['stage_name'] ?? '') ?>" required>
-
-                <label>Planned Start Date</label>
-                <input type="date" name="planned_start" value="<?= htmlspecialchars($_POST['planned_start'] ?? '') ?>" required>
-
-                <label>Planned End Date</label>
-                <input type="date" name="planned_end" value="<?= htmlspecialchars($_POST['planned_end'] ?? '') ?>" required>
-
-                <label>Allocated Budget for This Status Item</label>
-                <input type="number" name="allocated_budget" id="allocated_budget" step="0.01" min="0.01" value="<?= htmlspecialchars($_POST['allocated_budget'] ?? '') ?>" required>
-                <small style="display:block;margin:6px 0 14px;color:#666;">This allocation must fit within the remaining unallocated project budget.</small>
-
-                <input type="submit" name="add_stage" id="addStageButton" value="Add Status Item">
+                <input type="submit" name="add_stage" id="addStageButton" value="Add Status Item" style="margin-top:18px;">
             </form>
         </div>
     </div>
@@ -173,17 +226,17 @@ if(isset($_POST['add_stage'])){
 <?php include "footer.php"; ?>
 
 <script>
-function calculateBudget(projectId){
-    var select = document.querySelector('select[name="project_id"]');
-    var option = select.options[select.selectedIndex];
-    var total = parseFloat(option.getAttribute('data-total') || 0);
-    var allocated = parseFloat(option.getAttribute('data-allocated') || 0);
-    var remaining = parseFloat(option.getAttribute('data-remaining') || 0);
-    var summary = document.getElementById('projectSummary');
-    var button = document.getElementById('addStageButton');
-    var budgetInput = document.getElementById('allocated_budget');
-    var status = option.getAttribute('data-status') || '';
-    var readableStatus = status.replace(/_/g, ' ');
+function calculateBudget(projectId) {
+    const select = document.getElementById('project_id');
+    const option = select.options[select.selectedIndex];
+    const total = parseFloat(option.getAttribute('data-total') || 0);
+    const allocated = parseFloat(option.getAttribute('data-allocated') || 0);
+    const remaining = parseFloat(option.getAttribute('data-remaining') || 0);
+    const summary = document.getElementById('projectSummary');
+    const button = document.getElementById('addStageButton');
+    const budgetInput = document.getElementById('allocated_budget');
+    const status = option.getAttribute('data-status') || '';
+    const readableStatus = status.replace(/_/g, ' ');
 
     if (!projectId) {
         summary.style.display = 'none';
@@ -213,7 +266,7 @@ function calculateBudget(projectId){
     budgetInput.disabled = button.disabled;
 }
 
-calculateBudget(document.querySelector('select[name="project_id"]').value);
+calculateBudget(document.getElementById('project_id').value);
 </script>
 </body>
 </html>

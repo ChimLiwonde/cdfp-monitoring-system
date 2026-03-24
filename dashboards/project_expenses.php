@@ -194,9 +194,7 @@ if ($selected_project) {
 $success_message = $_SESSION['success_message'] ?? '';
 unset($_SESSION['success_message']);
 
-$project_total_budget = $selected_project
-    ? (float) $project_budget_summary['total_budget']
-    : 0;
+$project_total_budget = $selected_project ? (float) $project_budget_summary['total_budget'] : 0;
 $remaining_budget = $selected_project ? (float) $project_budget_summary['remaining_budget'] : 0;
 $remaining_allocatable_budget = $selected_project ? (float) $project_budget_summary['remaining_allocatable_budget'] : 0;
 $can_record_expense = $selected_project
@@ -210,6 +208,7 @@ $can_record_expense = $selected_project
 <html>
 <head>
     <title>Project Expenses</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/css/flexible.css">
 </head>
 <body>
@@ -218,108 +217,182 @@ $can_record_expense = $selected_project
 
 <div class="row">
     <div class="col-3"><?php include "menu.php"; ?></div>
-    <div class="col-9">
-        <div class="form-card">
-            <h3>Project Expenditure Ledger</h3>
+    <div class="col-9 dashboard-main">
+        <div class="form-card page-hero">
+            <div class="page-hero__grid">
+                <div class="page-hero__copy">
+                    <span class="eyebrow">Expenditure Ledger</span>
+                    <h3>Track project spending without mixing it into project status updates.</h3>
+                    <p>This ledger keeps budget totals, status-item allocations, and every recorded expense clearly separated and easy to review.</p>
+                </div>
+                <div class="hero-pills">
+                    <div class="hero-pill"><strong>Separate</strong>&nbsp; Finance Flow</div>
+                    <div class="hero-pill"><strong>Budget</strong>&nbsp; Controls</div>
+                </div>
+            </div>
+        </div>
 
+        <div class="data-card">
             <?php if ($success_message): ?>
-                <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+                <div class="msg success"><?= htmlspecialchars($success_message) ?></div>
             <?php elseif ($message !== ''): ?>
-                <div class="msg"><?= htmlspecialchars($message) ?></div>
+                <div class="msg error"><?= htmlspecialchars($message) ?></div>
             <?php endif; ?>
 
-            <form method="GET" style="margin-bottom:20px;">
-                <label>Select Project</label>
-                <select name="project_id" onchange="this.form.submit()" required>
-                    <option value="">-- Select Approved or Active Project --</option>
-                    <?php while ($project = $projects->fetch_assoc()): ?>
-                        <option value="<?= $project['id'] ?>" <?= $project['id'] === $selected_project_id ? 'selected' : '' ?>>
-                            <?= htmlspecialchars(formatProjectCode($project['id']) . ' - ' . $project['title'] . ' (' . formatStatusLabel($project['status']) . ')') ?>
-                        </option>
-                    <?php endwhile; ?>
-                </select>
+            <form method="GET">
+                <label for="project_id">Select Project</label>
+                <div class="form-grid">
+                    <div class="full-span">
+                        <select id="project_id" name="project_id" onchange="this.form.submit()" required>
+                            <option value="">-- Select Approved or Active Project --</option>
+                            <?php while ($project = $projects->fetch_assoc()): ?>
+                                <option value="<?= $project['id'] ?>" <?= $project['id'] === $selected_project_id ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars(formatProjectCode($project['id']) . ' - ' . $project['title'] . ' (' . formatStatusLabel($project['status']) . ')') ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                </div>
             </form>
+        </div>
 
-            <?php if (!$selected_project): ?>
-                <p>Select a project to record or review expenditure entries.</p>
-            <?php else: ?>
-                <div class="form-card" style="margin:0 0 20px 0;">
-                    <h4><?= formatProjectCode($selected_project['id']) ?> - <?= htmlspecialchars($selected_project['title']) ?></h4>
-                    <p><strong>Status:</strong> <?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?></p>
-                    <p><strong>Total Budget:</strong> MWK <?= number_format($project_total_budget, 2) ?></p>
-                    <p><strong>Allocated to Status Items:</strong> MWK <?= number_format((float) $project_budget_summary['allocated_total'], 2) ?></p>
-                    <p><strong>Remaining to Allocate:</strong> MWK <?= number_format($remaining_allocatable_budget, 2) ?></p>
-                    <p><strong>Total Recorded Expenses:</strong> MWK <?= number_format((float) $project_budget_summary['spent_total'], 2) ?></p>
-                    <?php if ($remaining_budget < 0): ?>
-                        <p style="color:#d32f2f;"><strong>Budget Overrun:</strong> MWK <?= number_format(abs($remaining_budget), 2) ?></p>
-                    <?php else: ?>
-                        <p style="color:#2e7d32;"><strong>Remaining Budget:</strong> MWK <?= number_format($remaining_budget, 2) ?></p>
-                    <?php endif; ?>
+        <?php if (!$selected_project): ?>
+            <div class="data-card">
+                <div class="empty-state">Select a project to record or review expenditure entries.</div>
+            </div>
+        <?php else: ?>
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Project Budget Summary</span>
+                        <h3><?= formatProjectCode($selected_project['id']) ?> - <?= htmlspecialchars($selected_project['title']) ?></h3>
+                    </div>
+                    <p>Use this summary to understand the full project budget before adding more expenditure entries.</p>
                 </div>
 
-                <div class="form-card" style="margin-top:0;">
-                    <h4>Record New Expense</h4>
-                    <?php if (count($stage_options) === 0): ?>
-                        <p>Add project status items before recording expenses.</p>
-                    <?php elseif (!in_array($selected_project['status'], ['approved', 'in_progress'], true)): ?>
-                        <p>This project is <?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?>, so expenditure entries are locked. You can still review the ledger below.</p>
-                    <?php elseif ($remaining_budget <= 0.01): ?>
-                        <p>This project has no remaining budget available for new expenses.</p>
-                    <?php elseif (!$can_record_expense): ?>
-                        <p>Every current status item has exhausted its allocated budget. Add a new status item allocation before recording more spending.</p>
-                    <?php else: ?>
-                        <form method="POST">
-                            <?= csrfInput('record_expense_form') ?>
-                            <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <strong>Status</strong>
+                        <span class="status-badge <?= htmlspecialchars($selected_project['status']) ?>"><?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Total Budget</strong>
+                        <span>MWK <?= number_format($project_total_budget, 2) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Allocated to Status Items</strong>
+                        <span>MWK <?= number_format((float) $project_budget_summary['allocated_total'], 2) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Remaining to Allocate</strong>
+                        <span>MWK <?= number_format($remaining_allocatable_budget, 2) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Total Recorded Expenses</strong>
+                        <span>MWK <?= number_format((float) $project_budget_summary['spent_total'], 2) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Remaining Budget</strong>
+                        <span style="color:<?= $remaining_budget < 0 ? '#b74b3d' : '#1d7a4c' ?>;">
+                            MWK <?= number_format($remaining_budget, 2) ?>
+                        </span>
+                    </div>
+                </div>
+            </div>
 
-                            Status Item
-                            <select name="stage_id" required>
-                                <option value="">-- Select Status Item --</option>
-                                <?php foreach ($stage_options as $stage): ?>
-                                    <option value="<?= $stage['id'] ?>" <?= $stage['id'] === $selected_stage_id ? 'selected' : '' ?> <?= (float) $stage['remaining_budget'] <= 0.01 ? 'disabled' : '' ?>>
-                                        <?= htmlspecialchars(
-                                            $stage['stage_name'] .
-                                            ' | Allocated MWK ' . number_format((float) $stage['allocated_budget'], 2) .
-                                            ' | Spent MWK ' . number_format((float) $stage['spent_total'], 2) .
-                                            ' | Remaining MWK ' . number_format(max((float) $stage['remaining_budget'], 0), 2)
-                                        ) ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-
-                            Expense Title
-                            <input type="text" name="expense_title" required>
-
-                            Category
-                            <select name="category" required>
-                                <option value="">-- Select Category --</option>
-                                <option value="Materials">Materials</option>
-                                <option value="Labour">Labour</option>
-                                <option value="Transport">Transport</option>
-                                <option value="Equipment">Equipment</option>
-                                <option value="Administration">Administration</option>
-                                <option value="Other">Other</option>
-                            </select>
-
-                            Vendor / Payee
-                            <input type="text" name="vendor_name">
-
-                            Amount (MWK)
-                            <input type="number" name="amount" step="0.01" min="0.01" required>
-
-                            Expense Date
-                            <input type="date" name="expense_date" value="<?= date('Y-m-d') ?>" required>
-
-                            Notes
-                            <textarea name="notes" style="width:100%;min-height:100px;padding:12px;border:1px solid #90caf9;border-radius:8px;"></textarea>
-
-                            <input type="submit" name="record_expense" value="Record Expense">
-                        </form>
-                    <?php endif; ?>
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">New Expense</span>
+                        <h3>Record New Expense</h3>
+                    </div>
+                    <p>Only approved or active projects with available budget can accept new expenditure entries.</p>
                 </div>
 
-                <div class="form-card">
-                    <h4>Status Item Budget Control</h4>
+                <?php if (count($stage_options) === 0): ?>
+                    <div class="empty-state">Add project status items before recording expenses.</div>
+                <?php elseif (!in_array($selected_project['status'], ['approved', 'in_progress'], true)): ?>
+                    <div class="empty-state">This project is <?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?>, so expenditure entries are locked. You can still review the ledger below.</div>
+                <?php elseif ($remaining_budget <= 0.01): ?>
+                    <div class="empty-state">This project has no remaining budget available for new expenses.</div>
+                <?php elseif (!$can_record_expense): ?>
+                    <div class="empty-state">Every current status item has exhausted its allocated budget. Add a new status-item allocation before recording more spending.</div>
+                <?php else: ?>
+                    <form method="POST">
+                        <?= csrfInput('record_expense_form') ?>
+                        <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
+
+                        <div class="form-grid">
+                            <div class="full-span">
+                                <label for="stage_id">Status Item</label>
+                                <select id="stage_id" name="stage_id" required>
+                                    <option value="">-- Select Status Item --</option>
+                                    <?php foreach ($stage_options as $stage): ?>
+                                        <option value="<?= $stage['id'] ?>" <?= $stage['id'] === $selected_stage_id ? 'selected' : '' ?> <?= (float) $stage['remaining_budget'] <= 0.01 ? 'disabled' : '' ?>>
+                                            <?= htmlspecialchars(
+                                                $stage['stage_name'] .
+                                                ' | Allocated MWK ' . number_format((float) $stage['allocated_budget'], 2) .
+                                                ' | Spent MWK ' . number_format((float) $stage['spent_total'], 2) .
+                                                ' | Remaining MWK ' . number_format(max((float) $stage['remaining_budget'], 0), 2)
+                                            ) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="expense_title">Expense Title</label>
+                                <input id="expense_title" type="text" name="expense_title" required>
+                            </div>
+
+                            <div>
+                                <label for="category">Category</label>
+                                <select id="category" name="category" required>
+                                    <option value="">-- Select Category --</option>
+                                    <option value="Materials">Materials</option>
+                                    <option value="Labour">Labour</option>
+                                    <option value="Transport">Transport</option>
+                                    <option value="Equipment">Equipment</option>
+                                    <option value="Administration">Administration</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label for="vendor_name">Vendor / Payee</label>
+                                <input id="vendor_name" type="text" name="vendor_name">
+                            </div>
+
+                            <div>
+                                <label for="amount">Amount (MWK)</label>
+                                <input id="amount" type="number" name="amount" step="0.01" min="0.01" required>
+                            </div>
+
+                            <div>
+                                <label for="expense_date">Expense Date</label>
+                                <input id="expense_date" type="date" name="expense_date" value="<?= date('Y-m-d') ?>" required>
+                            </div>
+
+                            <div class="full-span">
+                                <label for="notes">Notes</label>
+                                <textarea id="notes" name="notes"></textarea>
+                            </div>
+                        </div>
+
+                        <input type="submit" name="record_expense" value="Record Expense">
+                    </form>
+                <?php endif; ?>
+            </div>
+
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Budget Control</span>
+                        <h3>Status Item Budget Control</h3>
+                    </div>
+                    <p>Monitor whether each status item is within budget, exhausted, or already over budget.</p>
+                </div>
+                <div class="table-wrap">
                     <table class="dashboard-table">
                         <tr>
                             <th>Status Item</th>
@@ -336,20 +409,26 @@ $can_record_expense = $selected_project
                                 <td><?= htmlspecialchars(formatStatusLabel($stage_row['status'])) ?></td>
                                 <td>MWK <?= number_format((float) $stage_row['allocated_budget'], 2) ?></td>
                                 <td>MWK <?= number_format((float) $stage_row['spent_total'], 2) ?></td>
-                                <td style="color:<?= $stage_remaining < 0 ? '#d32f2f' : '#2e7d32' ?>;">
-                                    MWK <?= number_format($stage_remaining, 2) ?>
-                                </td>
+                                <td style="color:<?= $stage_remaining < 0 ? '#b74b3d' : '#1d7a4c' ?>;">MWK <?= number_format($stage_remaining, 2) ?></td>
                                 <td><?= $stage_remaining < 0 ? 'Over Budget' : ($stage_remaining <= 0.01 ? 'Budget Exhausted' : 'Within Budget') ?></td>
                             </tr>
                         <?php endforeach; ?>
                     </table>
                 </div>
+            </div>
 
-                <div class="form-card">
-                    <h4>Recorded Expenses</h4>
-                    <?php if (count($expenses) === 0): ?>
-                        <p>No expenses recorded for this project yet.</p>
-                    <?php else: ?>
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Expense History</span>
+                        <h3>Recorded Expenses</h3>
+                    </div>
+                    <p>Review every expense entry tied to this project, including the related status item and who recorded it.</p>
+                </div>
+                <?php if (count($expenses) === 0): ?>
+                    <div class="empty-state">No expenses recorded for this project yet.</div>
+                <?php else: ?>
+                    <div class="table-wrap">
                         <table class="dashboard-table">
                             <tr>
                                 <th>Date</th>
@@ -378,10 +457,10 @@ $can_record_expense = $selected_project
                                 </tr>
                             <?php endforeach; ?>
                         </table>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 

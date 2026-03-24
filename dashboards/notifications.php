@@ -84,67 +84,8 @@ $menuFile = $role === 'admin' ? 'adminmenu.php' : ($role === 'public' ? 'publicm
 <html>
 <head>
     <title>Notifications</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/css/flexible.css">
-    <style>
-        .notification-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin-bottom: 18px;
-        }
-        .notification-card {
-            background: #f7fbff;
-            border: 1px solid #d6eafc;
-            border-radius: 10px;
-            padding: 16px;
-        }
-        .notification-card strong {
-            display: block;
-            color: #0d47a1;
-            margin-bottom: 8px;
-        }
-        .notification-item {
-            border: 1px solid #dfeaf5;
-            border-left: 4px solid #90caf9;
-            border-radius: 10px;
-            padding: 14px;
-            margin-bottom: 12px;
-            background: #fff;
-        }
-        .notification-item.unread {
-            border-left-color: #1565c0;
-            background: #f8fbff;
-        }
-        .notification-meta {
-            color: #666;
-            font-size: 13px;
-            margin-bottom: 8px;
-        }
-        .notification-actions {
-            margin-top: 12px;
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-        }
-        .filter-row {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 16px;
-        }
-        .filter-link {
-            display: inline-block;
-            padding: 8px 14px;
-            border-radius: 8px;
-            text-decoration: none;
-            background: #e3f2fd;
-            font-weight: 600;
-        }
-        .filter-link.active {
-            background: #1565c0;
-            color: #fff;
-        }
-    </style>
 </head>
 <body>
 
@@ -152,67 +93,104 @@ $menuFile = $role === 'admin' ? 'adminmenu.php' : ($role === 'public' ? 'publicm
 
 <div class="row">
     <div class="col-3"><?php include $menuFile; ?></div>
-    <div class="col-9">
-        <div class="form-card">
-            <h3>Notifications</h3>
+    <div class="col-9 dashboard-main">
+        <div class="form-card page-hero">
+            <div class="page-hero__grid">
+                <div class="page-hero__copy">
+                    <span class="eyebrow">Notification Center</span>
+                    <h3>Stay on top of project activity</h3>
+                    <p>Track reviews, status changes, replies, and reminders in one inbox so each role sees what needs attention next.</p>
+                    <div class="hero-actions">
+                        <a href="home.php" class="back-btn">Back to Home</a>
+                    </div>
+                </div>
+                <div class="hero-pills">
+                    <div class="hero-pill"><strong><?= $totalNotifications ?></strong>&nbsp; Total</div>
+                    <div class="hero-pill"><strong><?= $unreadNotifications ?></strong>&nbsp; Unread</div>
+                </div>
+            </div>
+        </div>
 
+        <div class="data-card">
             <?php if ($message !== ''): ?>
-                <div class="msg"><?= htmlspecialchars($message) ?></div>
+                <div class="msg success"><?= htmlspecialchars($message) ?></div>
             <?php endif; ?>
+
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Mailbox Summary</span>
+                    <h3>Notifications Overview</h3>
+                </div>
+                <p>Use the filters to focus on unread items, then open the related workflow directly from the notification card.</p>
+            </div>
 
             <div class="notification-grid">
                 <div class="notification-card">
                     <strong>Total Notifications</strong>
-                    <div><?= $totalNotifications ?></div>
+                    <div class="metric-value"><?= $totalNotifications ?></div>
+                    <div class="metric-meta">All activity routed to your account.</div>
                 </div>
                 <div class="notification-card">
                     <strong>Unread Notifications</strong>
-                    <div><?= $unreadNotifications ?></div>
+                    <div class="metric-value"><?= $unreadNotifications ?></div>
+                    <div class="metric-meta">Items still waiting for a response or review.</div>
                 </div>
             </div>
 
-            <div class="filter-row">
-                <a class="filter-link <?= $filter === 'all' ? 'active' : '' ?>" href="notifications.php?filter=all">All</a>
-                <a class="filter-link <?= $filter === 'unread' ? 'active' : '' ?>" href="notifications.php?filter=unread">Unread</a>
+            <div class="toolbar">
+                <a class="toolbar-link <?= $filter === 'all' ? 'active' : '' ?>" href="notifications.php?filter=all">All notifications</a>
+                <a class="toolbar-link <?= $filter === 'unread' ? 'active' : '' ?>" href="notifications.php?filter=unread">Unread only</a>
                 <?php if ($unreadNotifications > 0): ?>
-                    <form method="POST" style="margin:0;">
+                    <form method="POST" class="inline-form">
                         <?= csrfInput('notifications_actions_form') ?>
-                        <input type="submit" name="mark_all_read" value="Mark All Read">
+                        <input type="submit" name="mark_all_read" value="Mark All Read" class="action-chip action-chip--primary">
                     </form>
                 <?php endif; ?>
             </div>
+        </div>
+
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Inbox</span>
+                    <h3><?= $filter === 'unread' ? 'Unread Notifications' : 'Recent Notifications' ?></h3>
+                </div>
+                <p><?= $filter === 'unread' ? 'These items still need your attention.' : 'Recent activity from across the system appears here in reverse chronological order.' ?></p>
+            </div>
 
             <?php if ($notifications->num_rows === 0): ?>
-                <p>No notifications found for this filter.</p>
+                <div class="empty-state">No notifications found for this filter.</div>
             <?php else: ?>
-                <?php while ($notification = $notifications->fetch_assoc()): ?>
-                    <div class="notification-item <?= (int) $notification['is_read'] === 0 ? 'unread' : '' ?>">
-                        <div class="notification-meta">
-                            <?= htmlspecialchars(formatNotificationTypeLabel($notification['notification_type'])) ?>
-                            | <?= date("d M Y, H:i", strtotime($notification['created_at'])) ?>
-                            | <?= (int) $notification['is_read'] === 0 ? 'Unread' : 'Read' ?>
-                        </div>
+                <div class="stack-list">
+                    <?php while ($notification = $notifications->fetch_assoc()): ?>
+                        <div class="notification-item <?= (int) $notification['is_read'] === 0 ? 'unread' : '' ?>">
+                            <div class="notification-meta">
+                                <?= htmlspecialchars(formatNotificationTypeLabel($notification['notification_type'])) ?>
+                                | <?= date("d M Y, H:i", strtotime($notification['created_at'])) ?>
+                                | <?= (int) $notification['is_read'] === 0 ? 'Unread' : 'Read' ?>
+                            </div>
 
-                        <h4 style="margin:0 0 8px 0;"><?= htmlspecialchars($notification['title']) ?></h4>
-                        <div><?= nl2br(htmlspecialchars($notification['message'])) ?></div>
+                            <h4><?= htmlspecialchars($notification['title']) ?></h4>
+                            <div><?= nl2br(htmlspecialchars($notification['message'])) ?></div>
 
-                        <div class="notification-actions">
-                            <?php if (!empty($notification['link'])): ?>
-                                <form method="POST" action="open_notification.php" style="margin:0;">
-                                    <?= csrfInput('open_notification_form') ?>
-                                    <input type="hidden" name="id" value="<?= (int) $notification['id'] ?>">
-                                    <button type="submit">Open</button>
-                                </form>
-                            <?php endif; ?>
-                            <?php if ((int) $notification['is_read'] === 0): ?>
-                                <form method="POST" style="margin:0;">
-                                    <?= csrfInput('notifications_actions_form') ?>
-                                    <button type="submit" name="mark_read_id" value="<?= $notification['id'] ?>">Mark Read</button>
-                                </form>
-                            <?php endif; ?>
+                            <div class="notification-actions">
+                                <?php if (!empty($notification['link'])): ?>
+                                    <form method="POST" action="open_notification.php" class="inline-form">
+                                        <?= csrfInput('open_notification_form') ?>
+                                        <input type="hidden" name="id" value="<?= (int) $notification['id'] ?>">
+                                        <button type="submit" class="action-chip action-chip--primary">Open Linked Page</button>
+                                    </form>
+                                <?php endif; ?>
+                                <?php if ((int) $notification['is_read'] === 0): ?>
+                                    <form method="POST" class="inline-form">
+                                        <?= csrfInput('notifications_actions_form') ?>
+                                        <button type="submit" name="mark_read_id" value="<?= (int) $notification['id'] ?>" class="action-chip">Mark Read</button>
+                                    </form>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                    </div>
-                <?php endwhile; ?>
+                    <?php endwhile; ?>
+                </div>
             <?php endif; ?>
         </div>
     </div>

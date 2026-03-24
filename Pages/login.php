@@ -58,45 +58,63 @@ if (isset($_POST['login'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/css/flexible.css">
 </head>
-<body>
+<body class="auth-page">
 
-<div class="row">
-    <header class="col-12">
-        <img src="../assets/img/logo.jpg" alt="CDF Logo">
-        <h1>CDF Monitoring System</h1>
-    </header>
-</div>
-
-<div class="row">
-    <div class="col-4"></div>
-
-    <div class="col-4">
-        <div class="form-card">
-
-            <h3>Login</h3>
-            <p>Login once and the system will open the correct workspace for your role automatically.</p>
-
-            <?php if ($message): ?>
-                <div class="msg"><?= htmlspecialchars($message) ?></div>
-            <?php endif; ?>
-
-            <form method="POST">
-                <?= csrfInput('login_form') ?>
-                <label>Username or Email</label>
-                <input type="text" name="user_name" required>
-
-                <label>Password</label>
-                <input type="password" name="user_password" required>
-
-                <input type="submit" name="login" value="Login">
-            </form>
-              <br>
-            <a href="create_account.php">Create Account</a>
+<main class="auth-shell">
+    <section class="auth-panel auth-panel--hero">
+        <div class="auth-brand">
+            <img src="../assets/img/logo.jpg" alt="CDF Monitoring System logo">
+            <div>
+                <span class="eyebrow">CDF Monitoring System</span>
+            </div>
         </div>
-    </div>
 
-    <div class="col-4"></div>
-</div>
+        <h1>Monitor public projects with one connected civic workspace.</h1>
+        <p>Track approvals, budgets, community requests, progress updates, and stakeholder collaboration in a cleaner centralized flow.</p>
+
+        <div class="auth-feature-list">
+            <div class="auth-feature">
+                <strong>Role-Aware Access</strong>
+                <span>One login routes each user to the right workspace automatically.</span>
+            </div>
+            <div class="auth-feature">
+                <strong>Budget Visibility</strong>
+                <span>Keep project spending, status, and alerts visible in one system.</span>
+            </div>
+            <div class="auth-feature">
+                <strong>Community Accountability</strong>
+                <span>Projects, requests, replies, and reports stay linked across roles.</span>
+            </div>
+        </div>
+    </section>
+
+    <section class="auth-panel auth-panel--form">
+        <h2>Welcome Back</h2>
+        <p>Sign in once and continue from the panel that matches your role.</p>
+
+        <?php if ($message): ?>
+            <div class="msg error"><?= htmlspecialchars($message) ?></div>
+        <?php endif; ?>
+
+        <form method="POST">
+            <?= csrfInput('login_form') ?>
+
+            <label for="user_name">Username or Email</label>
+            <input id="user_name" type="text" name="user_name" required>
+
+            <label for="user_password">Password</label>
+            <input id="user_password" type="password" name="user_password" required>
+
+            <input type="submit" name="login" value="Login">
+        </form>
+
+        <div class="auth-links">
+            <a href="create_account.php">Create an account</a>
+        </div>
+
+        <p class="auth-note">Use your existing account details. The system will open the correct dashboard for your role after login.</p>
+    </section>
+</main>
 
 </body>
 </html>

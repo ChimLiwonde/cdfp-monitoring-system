@@ -6,19 +6,23 @@ if (isset($conn, $_SESSION['user_id'])) {
     $notificationCount = getUnreadNotificationCount($conn, $_SESSION['user_id']);
 }
 ?>
-<div class="form-card">
-    <h3>Menu</h3>
+<aside class="nav-card">
+    <div class="nav-card__head">
+        <span class="nav-card__kicker">Admin Navigation</span>
+        <h3>Control Center</h3>
+        <p>Review submissions, watch budgets, and keep the whole system moving.</p>
+    </div>
     <ul class="menu-list">
-    <li><a href="home.php">Dashboard</a></li>
-    <li><a href="notifications.php">Notifications<?= $notificationCount > 0 ? ' (' . $notificationCount . ')' : '' ?></a></li>
-    <li><a href="adminprojects.php">Project Approvals</a></li>
-    <li><a href="admin_add_officer.php">Create Project Lead</a></li>
-    <li><a href="admin_community_requests.php">Community Requests</a></li>
-    <li><a href="admin_project_comments.php">Project Comments</a></li>
-    <li><a href="project_collaboration.php">Collaboration</a></li>
-    <li><a href="admin_project_report.php">Reports</a></li>
-    <li><a href="manage_users.php">Manage Users</a></li>
-    <li><a href="../Pages/logout.php">Logout</a></li>
-</ul>
-</div>
+        <li><a href="home.php"><span class="nav-label">Dashboard</span></a></li>
+        <li><a href="notifications.php"><span class="nav-label">Notifications</span><?= $notificationCount > 0 ? '<span class="nav-count">' . $notificationCount . '</span>' : '' ?></a></li>
+        <li><a href="adminprojects.php"><span class="nav-label">Project Approvals</span></a></li>
+        <li><a href="admin_add_officer.php"><span class="nav-label">Create Project Lead</span></a></li>
+        <li><a href="admin_community_requests.php"><span class="nav-label">Community Requests</span></a></li>
+        <li><a href="admin_project_comments.php"><span class="nav-label">Project Comments</span></a></li>
+        <li><a href="project_collaboration.php"><span class="nav-label">Collaboration</span></a></li>
+        <li><a href="admin_project_report.php"><span class="nav-label">Reports</span></a></li>
+        <li><a href="manage_users.php"><span class="nav-label">Manage Users</span></a></li>
+        <li><a href="../Pages/logout.php"><span class="nav-label">Logout</span></a></li>
+    </ul>
+</aside>
 

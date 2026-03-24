@@ -10,7 +10,9 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 
 $request_id = (int) ($_POST['id'] ?? $_GET['id'] ?? 0);
 if ($request_id <= 0) {
-    die("Invalid request ID");
+    $_SESSION['error_message'] = "Invalid community request selected.";
+    header("Location: admin_community_requests.php");
+    exit();
 }
 
 $stmt = $conn->prepare("
@@ -33,7 +35,9 @@ $stmt->execute();
 $request = $stmt->get_result()->fetch_assoc();
 
 if (!$request) {
-    die("Community request not found");
+    $_SESSION['error_message'] = "Community request not found.";
+    header("Location: admin_community_requests.php");
+    exit();
 }
 
 if ($request['status'] !== 'pending') {
@@ -77,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <html>
 <head>
     <title>Review Community Request</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/css/flexible.css">
 </head>
 <body>
@@ -85,16 +90,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="row">
     <div class="col-3"><?php include "adminmenu.php"; ?></div>
-    <div class="col-9">
-        <div class="form-card">
-            <a href="admin_community_requests.php" class="back-btn">Back to Community Requests</a>
+    <div class="col-9 dashboard-main">
+        <div class="form-card page-hero">
+            <div class="page-hero__grid">
+                <div class="page-hero__copy">
+                    <span class="eyebrow">Request Review</span>
+                    <h3>Review <?= htmlspecialchars($request['title']) ?></h3>
+                    <p>Confirm the citizen request details below, add a clear review note if needed, and then mark the request as reviewed.</p>
+                    <div class="hero-actions">
+                        <a href="admin_community_requests.php?status=pending" class="back-btn">Back to Pending Requests</a>
+                    </div>
+                </div>
+                <div class="hero-pills">
+                    <div class="hero-pill"><strong><?= htmlspecialchars($request['district']) ?></strong>&nbsp; District</div>
+                    <div class="hero-pill"><strong><?= htmlspecialchars($request['area']) ?></strong>&nbsp; Area</div>
+                </div>
+            </div>
+        </div>
 
-            <h3>Review Community Request</h3>
-            <p><strong>Citizen:</strong> <?= htmlspecialchars($request['username']) ?></p>
-            <p><strong>Title:</strong> <?= htmlspecialchars($request['title']) ?></p>
-            <p><strong>District:</strong> <?= htmlspecialchars($request['district']) ?></p>
-            <p><strong>Area:</strong> <?= htmlspecialchars($request['area']) ?></p>
-            <p><strong>Description:</strong><br><?= nl2br(htmlspecialchars($request['description'])) ?></p>
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Citizen Request</span>
+                    <h3>Request Summary</h3>
+                </div>
+                <p>Everything you need for the review is visible here before you send a note back to the citizen.</p>
+            </div>
+
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <strong>Citizen</strong>
+                    <span><?= htmlspecialchars($request['username']) ?></span>
+                </div>
+                <div class="detail-card">
+                    <strong>District</strong>
+                    <span><?= htmlspecialchars($request['district']) ?></span>
+                </div>
+                <div class="detail-card">
+                    <strong>Area</strong>
+                    <span><?= htmlspecialchars($request['area']) ?></span>
+                </div>
+                <div class="detail-card">
+                    <strong>Status</strong>
+                    <span class="status-badge pending">Pending Review</span>
+                </div>
+            </div>
+
+            <div class="detail-card space-top-sm">
+                <strong>Description</strong>
+                <span><?= nl2br(htmlspecialchars($request['description'])) ?></span>
+            </div>
+        </div>
+
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Review Note</span>
+                    <h3>Complete Review</h3>
+                </div>
+                <p>Add an optional note to guide the citizen, then mark this request as reviewed.</p>
+            </div>
 
             <?php if ($error !== ''): ?>
                 <div class="msg error"><?= htmlspecialchars($error) ?></div>
@@ -105,10 +160,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="hidden" name="id" value="<?= $request['id'] ?>">
 
                 <label>Review Note (Optional)</label>
-                <textarea name="review_notes" style="width:100%;min-height:140px;padding:12px;border:1px solid #90caf9;border-radius:8px;"><?= htmlspecialchars($reviewNotes) ?></textarea>
+                <textarea name="review_notes"><?= htmlspecialchars($reviewNotes) ?></textarea>
 
-                <br>
-                <input type="submit" value="Mark Reviewed">
+                <div class="hero-actions">
+                    <input type="submit" value="Mark Reviewed">
+                </div>
             </form>
         </div>
     </div>

@@ -8,7 +8,6 @@ if (($_SESSION['role'] ?? null) !== 'admin') {
     exit();
 }
 
-/* ================= DASHBOARD STATS ================= */
 $total_projects = $conn->query("SELECT COUNT(*) total FROM projects")->fetch_assoc()['total'];
 $pending_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE status='pending'")->fetch_assoc()['total'];
 $approved_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE status='approved'")->fetch_assoc()['total'];
@@ -16,10 +15,9 @@ $in_progress_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE 
 $completed_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE status='completed'")->fetch_assoc()['total'];
 $denied_projects = $conn->query("SELECT COUNT(*) total FROM projects WHERE status='denied'")->fetch_assoc()['total'];
 
-/* ================= COMMUNITY REQUESTS ================= */
 $pending_requests = $conn->query("
-    SELECT COUNT(*) total 
-    FROM community_requests 
+    SELECT COUNT(*) total
+    FROM community_requests
     WHERE status = 'pending'
 ")->fetch_assoc()['total'];
 
@@ -45,7 +43,6 @@ $collaboration_messages = $conn->query("
     FROM project_collaboration_messages
 ")->fetch_assoc()['total'];
 
-/* ================= PROJECTS LAST 7 DAYS ================= */
 $projects_per_day = [];
 $projects_titles_per_day = [];
 
@@ -65,43 +62,50 @@ $summary_cards = [
         'label' => 'Total Projects',
         'value' => $total_projects,
         'class' => 'card-total',
-        'href'  => 'adminprojects.php?status=all'
+        'href'  => 'adminprojects.php?status=all',
+        'meta' => 'Open all project records'
     ],
     [
         'label' => 'Pending Projects',
         'value' => $pending_projects,
         'class' => 'card-pending',
-        'href'  => 'adminprojects.php?status=pending'
+        'href'  => 'adminprojects.php?status=pending',
+        'meta' => 'Review new submissions'
     ],
     [
         'label' => 'Approved Projects',
         'value' => $approved_projects,
         'class' => 'card-approved',
-        'href'  => 'adminprojects.php?status=approved'
+        'href'  => 'adminprojects.php?status=approved',
+        'meta' => 'Projects ready to deliver'
     ],
     [
         'label' => 'Projects In Progress',
         'value' => $in_progress_projects,
         'class' => 'card-info',
-        'href'  => 'adminprojects.php?status=in_progress'
+        'href'  => 'adminprojects.php?status=in_progress',
+        'meta' => 'Active delivery work'
     ],
     [
         'label' => 'Completed Projects',
         'value' => $completed_projects,
         'class' => 'card-completed',
-        'href'  => 'adminprojects.php?status=completed'
+        'href'  => 'adminprojects.php?status=completed',
+        'meta' => 'Closed and completed'
     ],
     [
         'label' => 'Denied Projects',
         'value' => $denied_projects,
         'class' => 'card-denied',
-        'href'  => 'adminprojects.php?status=denied'
+        'href'  => 'adminprojects.php?status=denied',
+        'meta' => 'Projects needing rework'
     ],
     [
         'label' => 'Pending Community Requests',
         'value' => $pending_requests,
         'class' => 'card-community',
-        'href'  => 'admin_community_requests.php?status=pending'
+        'href'  => 'admin_community_requests.php?status=pending',
+        'meta' => 'Citizen requests waiting for review'
     ]
 ];
 
@@ -110,19 +114,22 @@ $alert_cards = [
         'label' => 'Over Budget Projects',
         'value' => $over_budget_projects,
         'class' => 'card-denied',
-        'href'  => 'admin_project_report.php?type=financial'
+        'href'  => 'admin_project_report.php?type=financial',
+        'meta' => 'Financial attention needed'
     ],
     [
         'label' => 'Over Budget Status Items',
         'value' => $over_budget_stages,
         'class' => 'card-pending',
-        'href'  => 'admin_project_report.php?type=financial'
+        'href'  => 'admin_project_report.php?type=financial',
+        'meta' => 'Project status allocations to review'
     ],
     [
         'label' => 'Internal Collaboration Messages',
         'value' => $collaboration_messages,
         'class' => 'card-total',
-        'href'  => 'project_collaboration.php'
+        'href'  => 'project_collaboration.php',
+        'meta' => 'Open stakeholder discussion'
     ]
 ];
 ?>
@@ -134,65 +141,31 @@ $alert_cards = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/css/flexible.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-    <style>
-        .summary-cards {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        .summary-card {
-            flex: 1;
-            padding: 20px;
-            border-radius: 8px;
-            color: #fff;
-            text-align: center;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.1);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-        .summary-card-link {
-            flex: 1;
-            min-width: 180px;
-            text-decoration: none;
-            color: inherit;
-        }
-        .summary-card-link:hover .summary-card {
-            transform: translateY(-3px);
-            box-shadow: 0 8px 18px rgba(0,0,0,0.14);
-        }
-        .card-total { background:#0c90b4; }
-        .card-pending { background:#fbc02d; color:#000; }
-        .card-approved { background:#388e3c; }
-        .card-info { background:#0288d1; }
-        .card-completed { background:#1565c0; }
-        .card-denied { background:#d32f2f; }
-        .card-community { background:#ffff; color:#000; }
-        .alert-grid {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        canvas {
-            background:#fff;
-            border-radius:8px;
-            padding:10px;
-            margin-top:20px;
-        }
-    </style>
 </head>
 <body>
 
 <?php include "header.php"; ?>
 
 <div class="row">
-
     <div class="col-3">
         <?php include "adminmenu.php"; ?>
     </div>
 
-    <div class="col-9">
+    <div class="col-9 dashboard-main">
+        <div class="form-card page-hero">
+            <div class="page-hero__grid">
+                <div class="page-hero__copy">
+                    <span class="eyebrow">Admin Overview</span>
+                    <h3>See the full monitoring system at a glance.</h3>
+                    <p>Review incoming projects, community requests, budget alerts, and stakeholder activity from one polished command view.</p>
+                </div>
+                <div class="hero-pills">
+                    <div class="hero-pill"><strong><?= $total_projects ?></strong>&nbsp; Projects</div>
+                    <div class="hero-pill"><strong><?= $pending_requests ?></strong>&nbsp; Requests</div>
+                    <div class="hero-pill"><strong><?= $collaboration_messages ?></strong>&nbsp; Messages</div>
+                </div>
+            </div>
+        </div>
 
         <div class="summary-cards">
             <?php foreach ($summary_cards as $card): ?>
@@ -200,26 +173,36 @@ $alert_cards = [
                     <div class="summary-card <?= $card['class'] ?>">
                         <h3><?= $card['label'] ?></h3>
                         <h2><?= $card['value'] ?></h2>
+                        <p class="metric-meta"><?= $card['meta'] ?></p>
                     </div>
                 </a>
             <?php endforeach; ?>
         </div>
 
-        <h3>Budget Alerts and Collaboration</h3>
         <div class="alert-grid">
             <?php foreach ($alert_cards as $card): ?>
                 <a class="summary-card-link" href="<?= $card['href'] ?>">
                     <div class="summary-card <?= $card['class'] ?>">
                         <h3><?= $card['label'] ?></h3>
                         <h2><?= $card['value'] ?></h2>
+                        <p class="metric-meta"><?= $card['meta'] ?></p>
                     </div>
                 </a>
             <?php endforeach; ?>
         </div>
 
-        <h3>Projects Created in Last 7 Days</h3>
-        <canvas id="projectsLineChart"></canvas>
-
+        <div class="chart-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Activity Trend</span>
+                    <h3>Projects Created in the Last 7 Days</h3>
+                </div>
+                <p>Use this trend view to spot quiet periods, bursts of submissions, and the exact project titles created on each day.</p>
+            </div>
+            <div class="chart-shell">
+                <canvas id="projectsLineChart"></canvas>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -238,8 +221,8 @@ new Chart(ctx, {
         datasets: [{
             label: 'Projects per Day',
             data: projectsPerDay,
-            borderColor: '#0c90b4',
-            backgroundColor: 'rgba(12,144,180,0.2)',
+            borderColor: '#0f766e',
+            backgroundColor: 'rgba(15,118,110,0.16)',
             fill: true,
             tension: 0.3,
             pointRadius: 6
@@ -247,7 +230,13 @@ new Chart(ctx, {
     },
     options: {
         responsive: true,
+        maintainAspectRatio: false,
         plugins: {
+            legend: {
+                labels: {
+                    color: '#17333b'
+                }
+            },
             tooltip: {
                 callbacks: {
                     label: function(context) {
@@ -260,7 +249,15 @@ new Chart(ctx, {
             }
         },
         scales: {
-            y: { beginAtZero: true }
+            x: {
+                ticks: { color: '#5e7379' },
+                grid: { color: 'rgba(198,186,166,0.22)' }
+            },
+            y: {
+                beginAtZero: true,
+                ticks: { color: '#5e7379' },
+                grid: { color: 'rgba(198,186,166,0.22)' }
+            }
         }
     }
 });

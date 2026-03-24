@@ -162,7 +162,6 @@ while ($row = $stages_result->fetch_assoc()) {
 }
 
 $activities = [];
-
 $activity_stmt = $conn->prepare("
     SELECT
         pal.event_type,
@@ -211,80 +210,9 @@ foreach ($stages as $stage) {
 <html>
 <head>
     <title>Admin Project Details</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/css/flexible.css">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-    <style>
-        #projectDetailMap {
-            height: 320px;
-            border-radius: 6px;
-            margin-top: 10px;
-        }
-        .status-pill {
-            display: inline-block;
-            padding: 6px 12px;
-            border-radius: 999px;
-            background: #e3f2fd;
-            color: #0d47a1;
-            font-weight: 600;
-        }
-        .quick-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 12px;
-            margin: 20px 0;
-        }
-        .quick-stat {
-            background: #f7fbff;
-            border: 1px solid #d6eafc;
-            border-radius: 10px;
-            padding: 14px;
-        }
-        .quick-stat strong {
-            display: block;
-            color: #0d47a1;
-            margin-bottom: 6px;
-        }
-        .action-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 15px 0 5px;
-        }
-        .action-link {
-            display: inline-block;
-            padding: 10px 16px;
-            border-radius: 8px;
-            color: #fff !important;
-            font-weight: 600;
-            text-decoration: none;
-        }
-        .action-approve {
-            background: #2e7d32;
-        }
-        .action-deny {
-            background: #c62828;
-        }
-        .activity-card {
-            border: 1px solid #e4eef7;
-            border-radius: 10px;
-            padding: 14px;
-            background: #fafcff;
-            margin-bottom: 12px;
-        }
-        .activity-head {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-bottom: 8px;
-        }
-        .activity-head strong {
-            color: #0d47a1;
-        }
-        .muted {
-            color: #666;
-        }
-    </style>
 </head>
 <body>
 
@@ -293,158 +221,273 @@ foreach ($stages as $stage) {
 <div class="row">
     <div class="col-3"><?php include "adminmenu.php"; ?></div>
 
-    <div class="col-9">
-        <div class="form-card">
-            <a href="adminprojects.php?status=all" class="back-btn">Back to Projects</a>
+    <div class="col-9 dashboard-main">
+        <div class="form-card page-hero">
+            <div class="page-hero__grid">
+                <div class="page-hero__copy">
+                    <span class="eyebrow">Admin Project Detail</span>
+                    <h3><?= formatProjectCode($project['id']) ?> - <?= htmlspecialchars($project['title']) ?></h3>
+                    <p>Review ownership, finances, status history, collaboration, and public feedback from one complete project record.</p>
+                    <div class="hero-actions">
+                        <a href="adminprojects.php?status=all" class="back-btn">Back to Projects</a>
+                        <a href="project_collaboration.php?project_id=<?= $project['id'] ?>" class="button-link btn-secondary">Open Collaboration</a>
+                    </div>
+                </div>
+                <div class="hero-pills">
+                    <div class="hero-pill"><strong><?= formatStatusLabel($project['status']) ?></strong>&nbsp; Status</div>
+                    <div class="hero-pill"><strong><?= count($stages) ?></strong>&nbsp; Status Items</div>
+                </div>
+            </div>
+        </div>
 
-            <h3><?= formatProjectCode($project['id']) ?> - <?= htmlspecialchars($project['title']) ?></h3>
-
+        <div class="data-card">
             <?php if ($success_message): ?>
-                <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+                <div class="msg success"><?= htmlspecialchars($success_message) ?></div>
             <?php endif; ?>
 
-            <p><span class="status-pill"><?= formatStatusLabel($project['status']) ?></span></p>
-            <p><strong>Project Lead:</strong> <?= htmlspecialchars($project['field_officer']) ?> (<?= htmlspecialchars($project['field_officer_email']) ?>)</p>
-            <p><strong>District:</strong> <?= htmlspecialchars($project['district']) ?></p>
-            <p><strong>Location:</strong> <?= htmlspecialchars($project['location']) ?></p>
-            <p><strong>Created:</strong> <?= date("d M Y, H:i", strtotime($project['created_at'])) ?></p>
-            <p><strong>Description:</strong><br><?= nl2br(htmlspecialchars($project['description'])) ?></p>
-            <p><a href="project_collaboration.php?project_id=<?= $project['id'] ?>">Open Internal Collaboration Channel</a></p>
-
-            <?php if (!empty($project['reviewed_at']) || !empty($project['review_notes'])): ?>
-                <div class="form-card" style="margin:15px 0 0 0;">
-                    <h4>Admin Review</h4>
-                    <?php if (!empty($project['reviewed_at'])): ?>
-                        <p><strong>Reviewed On:</strong> <?= date("d M Y, H:i", strtotime($project['reviewed_at'])) ?></p>
-                    <?php endif; ?>
-                    <?php if (!empty($project['reviewed_by_name'])): ?>
-                        <p><strong>Reviewed By:</strong> <?= htmlspecialchars($project['reviewed_by_name']) ?></p>
-                    <?php endif; ?>
-                    <p><strong>Review Note:</strong><br><?= nl2br(htmlspecialchars($project['review_notes'] ?: 'No review note recorded.')) ?></p>
+            <div class="detail-grid">
+                <div class="detail-card">
+                    <strong>Project Lead</strong>
+                    <span><?= htmlspecialchars($project['field_officer']) ?> (<?= htmlspecialchars($project['field_officer_email']) ?>)</span>
                 </div>
-            <?php endif; ?>
-
-            <?php if ($project['status'] === 'pending'): ?>
-                <div class="action-row">
-                    <a class="action-link action-approve" href="admin_update_project_status.php?id=<?= $project['id'] ?>&status=approved&return_to=detail">Approve Project</a>
-                    <a class="action-link action-deny" href="admin_update_project_status.php?id=<?= $project['id'] ?>&status=denied&return_to=detail" onclick="return confirm('Are you sure you want to deny this project?');">Deny Project</a>
+                <div class="detail-card">
+                    <strong>District</strong>
+                    <span><?= htmlspecialchars($project['district']) ?></span>
                 </div>
-            <?php endif; ?>
-
-            <div class="quick-stats">
-                <div class="quick-stat">
-                    <strong>Project Budget</strong>
-                    MWK <?= number_format($project_budget_total, 2) ?>
+                <div class="detail-card">
+                    <strong>Location</strong>
+                    <span><?= htmlspecialchars($project['location']) ?></span>
                 </div>
-                <div class="quick-stat">
-                    <strong>Total Spent</strong>
-                    MWK <?= number_format((float) $totals['spent'], 2) ?>
+                <div class="detail-card">
+                    <strong>Created</strong>
+                    <span><?= date("d M Y, H:i", strtotime($project['created_at'])) ?></span>
                 </div>
-                <div class="quick-stat">
-                    <strong>Remaining Budget</strong>
-                    MWK <?= number_format($remaining_budget, 2) ?>
+                <div class="detail-card">
+                    <strong>Status</strong>
+                    <span class="status-badge <?= htmlspecialchars($project['status']) ?>"><?= htmlspecialchars(formatStatusLabel($project['status'])) ?></span>
                 </div>
-                <div class="quick-stat">
-                    <strong>Remaining to Allocate</strong>
-                    MWK <?= number_format($remaining_to_allocate, 2) ?>
-                </div>
-                <div class="quick-stat">
-                    <strong>Status Items</strong>
-                    <?= count($stages) ?> total, <?= $completed_items ?> completed, <?= $active_items ?> active
+                <div class="detail-card">
+                    <strong>Description</strong>
+                    <span><?= nl2br(htmlspecialchars($project['description'])) ?></span>
                 </div>
             </div>
 
-            <?php if ($mapLat !== null && $mapLng !== null): ?>
-                <div id="projectDetailMap"></div>
+            <?php if ($project['status'] === 'pending'): ?>
+                <div class="action-strip" style="margin-top:18px;">
+                    <a class="button-link btn-secondary" href="admin_update_project_status.php?id=<?= $project['id'] ?>&status=approved&return_to=detail">Approve Project</a>
+                    <a class="back-btn" href="admin_update_project_status.php?id=<?= $project['id'] ?>&status=denied&return_to=detail" onclick="return confirm('Are you sure you want to deny this project?');">Deny Project</a>
+                </div>
             <?php endif; ?>
+        </div>
 
-            <hr>
+        <?php if (!empty($project['reviewed_at']) || !empty($project['review_notes'])): ?>
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Admin Review</span>
+                        <h3>Review Record</h3>
+                    </div>
+                    <p>Keep the official review notes visible alongside the full project record.</p>
+                </div>
+                <div class="detail-grid">
+                    <?php if (!empty($project['reviewed_at'])): ?>
+                        <div class="detail-card">
+                            <strong>Reviewed On</strong>
+                            <span><?= date("d M Y, H:i", strtotime($project['reviewed_at'])) ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if (!empty($project['reviewed_by_name'])): ?>
+                        <div class="detail-card">
+                            <strong>Reviewed By</strong>
+                            <span><?= htmlspecialchars($project['reviewed_by_name']) ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <div class="detail-card">
+                        <strong>Review Note</strong>
+                        <span><?= nl2br(htmlspecialchars($project['review_notes'] ?: 'No review note recorded.')) ?></span>
+                    </div>
+                </div>
+            </div>
+        <?php endif; ?>
 
-            <h4>Financial Summary</h4>
-            <p><strong>Estimated Budget:</strong> MWK <?= number_format((float) $project['estimated_budget'], 2) ?></p>
-            <p><strong>Contractor Fee:</strong> MWK <?= number_format((float) $project['contractor_fee'], 2) ?></p>
-            <p><strong>Total Project Budget:</strong> MWK <?= number_format($project_budget_total, 2) ?></p>
-            <p><strong>Total Allocated:</strong> MWK <?= number_format((float) $totals['allocated'], 2) ?></p>
-            <p><strong>Remaining to Allocate:</strong> MWK <?= number_format($remaining_to_allocate, 2) ?></p>
-            <p><strong>Total Spent:</strong> MWK <?= number_format((float) $totals['spent'], 2) ?></p>
-            <p><strong>Remaining to Spend:</strong> MWK <?= number_format($remaining_budget, 2) ?></p>
+        <div class="summary-cards">
+            <div class="summary-card card-total">
+                <h3>Project Budget</h3>
+                <h2>MWK <?= number_format($project_budget_total, 2) ?></h2>
+            </div>
+            <div class="summary-card card-info">
+                <h3>Total Spent</h3>
+                <h2>MWK <?= number_format((float) $totals['spent'], 2) ?></h2>
+            </div>
+            <div class="summary-card <?= $remaining_budget < 0 ? 'card-denied' : 'card-approved' ?>">
+                <h3>Remaining Budget</h3>
+                <h2>MWK <?= number_format($remaining_budget, 2) ?></h2>
+            </div>
+            <div class="summary-card card-community">
+                <h3>Remaining to Allocate</h3>
+                <h2>MWK <?= number_format($remaining_to_allocate, 2) ?></h2>
+            </div>
+            <div class="summary-card card-completed">
+                <h3>Status Items</h3>
+                <h2><?= count($stages) ?></h2>
+                <p class="metric-meta"><?= $completed_items ?> completed, <?= $active_items ?> active</p>
+            </div>
+        </div>
 
-            <hr>
+        <?php if ($mapLat !== null && $mapLng !== null): ?>
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Project Map</span>
+                        <h3>Location View</h3>
+                    </div>
+                    <p>Use the mapped coordinates to verify the project location visually.</p>
+                </div>
+                <div id="projectDetailMap" class="map-panel"></div>
+            </div>
+        <?php endif; ?>
 
-            <h4>Assigned Contractors</h4>
-            <?php if (count($contractors) === 0): ?>
-                <p class="muted">No contractor assigned.</p>
-            <?php else: ?>
-                <ul>
-                    <?php foreach ($contractors as $contractor): ?>
-                        <li>
-                            <strong><?= htmlspecialchars($contractor['name']) ?></strong><br>
-                            Company: <?= htmlspecialchars($contractor['company'] ?: 'N/A') ?><br>
-                            Phone: <?= htmlspecialchars($contractor['phone'] ?: 'N/A') ?>
-                        </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
+        <div class="section-grid">
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Contractor View</span>
+                        <h3>Assigned Contractors</h3>
+                    </div>
+                    <p>Every contractor currently attached to this project.</p>
+                </div>
+                <?php if (count($contractors) === 0): ?>
+                    <div class="empty-state">No contractor assigned.</div>
+                <?php else: ?>
+                    <div class="detail-grid">
+                        <?php foreach ($contractors as $contractor): ?>
+                            <div class="detail-card">
+                                <strong><?= htmlspecialchars($contractor['name']) ?></strong>
+                                <span>Company: <?= htmlspecialchars($contractor['company'] ?: 'N/A') ?></span><br>
+                                <span>Phone: <?= htmlspecialchars($contractor['phone'] ?: 'N/A') ?></span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
 
-            <hr>
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Financial Summary</span>
+                        <h3>Budget Position</h3>
+                    </div>
+                    <p>Compare allocations and spending across the full project budget.</p>
+                </div>
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <strong>Estimated Budget</strong>
+                        <span>MWK <?= number_format((float) $project['estimated_budget'], 2) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Contractor Fee</strong>
+                        <span>MWK <?= number_format((float) $project['contractor_fee'], 2) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Total Allocated</strong>
+                        <span>MWK <?= number_format((float) $totals['allocated'], 2) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Total Spent</strong>
+                        <span>MWK <?= number_format((float) $totals['spent'], 2) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Remaining to Allocate</strong>
+                        <span>MWK <?= number_format($remaining_to_allocate, 2) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Remaining to Spend</strong>
+                        <span style="color:<?= $remaining_budget < 0 ? '#b74b3d' : '#1d7a4c' ?>;">MWK <?= number_format($remaining_budget, 2) ?></span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-            <h4>Task Assignments</h4>
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Task Assignments</span>
+                    <h3>Assigned Team Members</h3>
+                </div>
+                <p>See which people are assigned to each status item.</p>
+            </div>
             <?php if (count($assignments) === 0): ?>
-                <p class="muted">No status items have been assigned yet.</p>
+                <div class="empty-state">No status items have been assigned yet.</div>
             <?php else: ?>
-                <table class="dashboard-table">
-                    <tr>
-                        <th>Status Item</th>
-                        <th>Assigned To</th>
-                        <th>Notes</th>
-                    </tr>
-                    <?php foreach ($assignments as $assignment): ?>
+                <div class="table-wrap">
+                    <table class="dashboard-table">
                         <tr>
-                            <td>
-                                <?= htmlspecialchars($assignment['stage_name']) ?><br>
-                                <small><?= htmlspecialchars(formatStatusLabel($assignment['stage_status'])) ?></small>
-                            </td>
-                            <td>
-                                <?= htmlspecialchars($assignment['full_name']) ?><br>
-                                <small><?= htmlspecialchars($assignment['role_title']) ?></small><br>
-                                <small><?= htmlspecialchars($assignment['contact_info'] ?: 'N/A') ?></small>
-                            </td>
-                            <td>
-                                <?= nl2br(htmlspecialchars($assignment['assignment_notes'] ?: 'No notes')) ?><br>
-                                <small><?= date("d M Y, H:i", strtotime($assignment['assigned_at'])) ?></small>
-                            </td>
+                            <th>Status Item</th>
+                            <th>Assigned To</th>
+                            <th>Notes</th>
                         </tr>
-                    <?php endforeach; ?>
-                </table>
+                        <?php foreach ($assignments as $assignment): ?>
+                            <tr>
+                                <td>
+                                    <?= htmlspecialchars($assignment['stage_name']) ?><br>
+                                    <small><?= htmlspecialchars(formatStatusLabel($assignment['stage_status'])) ?></small>
+                                </td>
+                                <td>
+                                    <?= htmlspecialchars($assignment['full_name']) ?><br>
+                                    <small><?= htmlspecialchars($assignment['role_title']) ?></small><br>
+                                    <small><?= htmlspecialchars($assignment['contact_info'] ?: 'N/A') ?></small>
+                                </td>
+                                <td>
+                                    <?= nl2br(htmlspecialchars($assignment['assignment_notes'] ?: 'No notes')) ?><br>
+                                    <small><?= date("d M Y, H:i", strtotime($assignment['assigned_at'])) ?></small>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </table>
+                </div>
             <?php endif; ?>
+        </div>
 
-            <hr>
-
-            <h4>Internal Collaboration</h4>
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Internal Collaboration</span>
+                    <h3>Stakeholder Messages</h3>
+                </div>
+                <p>Messages exchanged internally about this project.</p>
+            </div>
             <?php if (count($collaboration_messages) === 0): ?>
-                <p class="muted">No internal collaboration messages yet.</p>
+                <div class="empty-state">No internal collaboration messages yet.</div>
             <?php else: ?>
-                <table class="dashboard-table">
-                    <tr>
-                        <th>From</th>
-                        <th>Message</th>
-                        <th>When</th>
-                    </tr>
-                    <?php foreach ($collaboration_messages as $chat): ?>
+                <div class="table-wrap">
+                    <table class="dashboard-table">
                         <tr>
-                            <td><?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatRoleLabel($chat['sender_role'])) ?>)</td>
-                            <td><?= nl2br(htmlspecialchars($chat['message'])) ?></td>
-                            <td><?= date("d M Y, H:i", strtotime($chat['created_at'])) ?></td>
+                            <th>From</th>
+                            <th>Message</th>
+                            <th>When</th>
                         </tr>
-                    <?php endforeach; ?>
-                </table>
+                        <?php foreach ($collaboration_messages as $chat): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($chat['username']) ?> (<?= htmlspecialchars(formatRoleLabel($chat['sender_role'])) ?>)</td>
+                                <td><?= nl2br(htmlspecialchars($chat['message'])) ?></td>
+                                <td><?= date("d M Y, H:i", strtotime($chat['created_at'])) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </table>
+                </div>
             <?php endif; ?>
+        </div>
 
-            <hr>
-
-            <h4>Workflow / Approval History</h4>
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Workflow History</span>
+                    <h3>Approval and Activity Timeline</h3>
+                </div>
+                <p>Follow approvals, status transitions, and system events for this project.</p>
+            </div>
             <?php if (count($activities) === 0): ?>
-                <p class="muted">No workflow activity has been recorded for this project yet.</p>
+                <div class="empty-state">No workflow activity has been recorded for this project yet.</div>
             <?php else: ?>
                 <?php foreach ($activities as $activity): ?>
                     <?php
@@ -465,12 +508,7 @@ foreach ($stages as $stage) {
                         </div>
                         <p><strong>Actor:</strong> <?= htmlspecialchars($actor_label ?: 'System') ?></p>
                         <?php if ($activity['old_status'] !== null || $activity['new_status'] !== null): ?>
-                            <p>
-                                <strong>Transition:</strong>
-                                <?= htmlspecialchars(formatStatusLabel($activity['old_status'])) ?>
-                                to
-                                <?= htmlspecialchars(formatStatusLabel($activity['new_status'])) ?>
-                            </p>
+                            <p><strong>Transition:</strong> <?= htmlspecialchars(formatStatusLabel($activity['old_status'])) ?> to <?= htmlspecialchars(formatStatusLabel($activity['new_status'])) ?></p>
                         <?php endif; ?>
                         <?php if (!empty($activity['notes'])): ?>
                             <p><strong>Notes:</strong> <?= nl2br(htmlspecialchars($activity['notes'])) ?></p>
@@ -478,76 +516,102 @@ foreach ($stages as $stage) {
                     </div>
                 <?php endforeach; ?>
             <?php endif; ?>
+        </div>
 
-            <hr>
-
-            <h4>Expenditure Ledger</h4>
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Expenditure Ledger</span>
+                    <h3>Recorded Expenses</h3>
+                </div>
+                <p>All expense entries linked to this project.</p>
+            </div>
             <?php if (count($expenses) === 0): ?>
-                <p class="muted">No expenses recorded yet.</p>
+                <div class="empty-state">No expenses recorded yet.</div>
             <?php else: ?>
+                <div class="table-wrap">
+                    <table class="dashboard-table">
+                        <tr>
+                            <th>Date</th>
+                            <th>Status Item</th>
+                            <th>Expense</th>
+                            <th>Vendor</th>
+                            <th>Amount</th>
+                            <th>Notes</th>
+                        </tr>
+                        <?php foreach ($expenses as $expense): ?>
+                            <tr>
+                                <td><?= htmlspecialchars($expense['expense_date']) ?></td>
+                                <td><?= htmlspecialchars($expense['stage_name']) ?></td>
+                                <td>
+                                    <?= htmlspecialchars($expense['expense_title']) ?><br>
+                                    <small><?= htmlspecialchars($expense['category']) ?></small>
+                                </td>
+                                <td><?= htmlspecialchars($expense['vendor_name'] ?: 'N/A') ?></td>
+                                <td>MWK <?= number_format((float) $expense['amount'], 2) ?></td>
+                                <td><?= nl2br(htmlspecialchars($expense['notes'] ?: 'No notes')) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Status Timeline</span>
+                    <h3>Project Status History</h3>
+                </div>
+                <p>Planned dates, actual dates, and budget movement for each status item.</p>
+            </div>
+            <div class="table-wrap">
                 <table class="dashboard-table">
                     <tr>
-                        <th>Date</th>
                         <th>Status Item</th>
-                        <th>Expense</th>
-                        <th>Vendor</th>
-                        <th>Amount</th>
+                        <th>Planned</th>
+                        <th>Actual</th>
+                        <th>Budget</th>
+                        <th>Status</th>
                         <th>Notes</th>
                     </tr>
-                    <?php foreach ($expenses as $expense): ?>
+                    <?php if (count($stages) === 0): ?>
                         <tr>
-                            <td><?= htmlspecialchars($expense['expense_date']) ?></td>
-                            <td><?= htmlspecialchars($expense['stage_name']) ?></td>
+                            <td colspan="6" style="text-align:center;color:gray;">No status items added yet.</td>
+                        </tr>
+                    <?php endif; ?>
+                    <?php foreach ($stages as $stage): ?>
+                        <?php $stage_remaining = (float) $stage['allocated_budget'] - (float) $stage['spent_budget']; ?>
+                        <tr>
+                            <td><?= htmlspecialchars($stage['stage_name']) ?></td>
+                            <td><?= htmlspecialchars($stage['planned_start']) ?> to <?= htmlspecialchars($stage['planned_end']) ?></td>
+                            <td><?= htmlspecialchars($stage['actual_start'] ?: 'N/A') ?> to <?= htmlspecialchars($stage['actual_end'] ?: 'N/A') ?></td>
                             <td>
-                                <?= htmlspecialchars($expense['expense_title']) ?><br>
-                                <small><?= htmlspecialchars($expense['category']) ?></small>
+                                Alloc: <?= number_format((float) $stage['allocated_budget'], 2) ?><br>
+                                Spent: <?= number_format((float) $stage['spent_budget'], 2) ?><br>
+                                Remaining: <?= number_format($stage_remaining, 2) ?>
                             </td>
-                            <td><?= htmlspecialchars($expense['vendor_name'] ?: 'N/A') ?></td>
-                            <td>MWK <?= number_format((float) $expense['amount'], 2) ?></td>
-                            <td><?= nl2br(htmlspecialchars($expense['notes'] ?: 'No notes')) ?></td>
+                            <td><?= htmlspecialchars(formatStatusLabel($stage['status'])) ?></td>
+                            <td><?= nl2br(htmlspecialchars($stage['notes'] ?: '')) ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </table>
-            <?php endif; ?>
+            </div>
+        </div>
 
-            <hr>
-
-            <h4>Project Status Timeline</h4>
-            <table class="dashboard-table">
-                <tr>
-                    <th>Status Item</th>
-                    <th>Planned</th>
-                    <th>Actual</th>
-                    <th>Budget</th>
-                    <th>Status</th>
-                    <th>Notes</th>
-                </tr>
-                <?php if (count($stages) === 0): ?>
-                    <tr>
-                        <td colspan="6" style="text-align:center;color:gray;">No status items added yet.</td>
-                    </tr>
-                <?php endif; ?>
-                <?php foreach ($stages as $stage): ?>
-                    <?php $stage_remaining = (float) $stage['allocated_budget'] - (float) $stage['spent_budget']; ?>
-                    <tr>
-                        <td><?= htmlspecialchars($stage['stage_name']) ?></td>
-                        <td><?= htmlspecialchars($stage['planned_start']) ?> to <?= htmlspecialchars($stage['planned_end']) ?></td>
-                        <td><?= htmlspecialchars($stage['actual_start'] ?: 'N/A') ?> to <?= htmlspecialchars($stage['actual_end'] ?: 'N/A') ?></td>
-                        <td>Alloc: <?= number_format((float) $stage['allocated_budget'], 2) ?><br>Spent: <?= number_format((float) $stage['spent_budget'], 2) ?><br>Remaining: <?= number_format($stage_remaining, 2) ?></td>
-                        <td><?= htmlspecialchars(formatStatusLabel($stage['status'])) ?></td>
-                        <td><?= nl2br(htmlspecialchars($stage['notes'] ?: '')) ?></td>
-                    </tr>
-                <?php endforeach; ?>
-            </table>
-
-            <hr>
-
-            <h4>Citizen Comments</h4>
+        <div class="data-card">
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Citizen Feedback</span>
+                    <h3>Project Comments</h3>
+                </div>
+                <p>Public-facing comments and admin replies linked to this project.</p>
+            </div>
             <?php if (count($comments) === 0): ?>
-                <p class="muted">No comments on this project yet.</p>
+                <div class="empty-state">No comments on this project yet.</div>
             <?php else: ?>
                 <?php foreach ($comments as $comment): ?>
-                    <div class="public-comment" style="margin-bottom:12px;">
+                    <div class="public-comment">
                         <strong><?= htmlspecialchars($comment['username']) ?></strong>
                         <small><?= date("d M Y, H:i", strtotime($comment['created_at'])) ?></small><br>
                         <?= nl2br(htmlspecialchars($comment['comment'])) ?>

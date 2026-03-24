@@ -3,7 +3,6 @@ require_once __DIR__ . '/../config/helpers.php';
 startSecureSession();
 require "../config/db.php";
 
-/* ======================= SECURITY ======================= */
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
     exit();
@@ -11,7 +10,6 @@ if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
 
 $user_id = $_SESSION['user_id'];
 
-/* ======================= PROJECT COUNTS ======================= */
 $counts = [
     'pending'   => 0,
     'approved'  => 0,
@@ -21,19 +19,17 @@ $counts = [
 ];
 
 $projects = $conn->query("
-    SELECT id, status 
-    FROM projects 
+    SELECT id, status
+    FROM projects
     WHERE created_by = $user_id
 ");
 
 while ($p = $projects->fetch_assoc()) {
-
     if ($p['status'] === 'denied') {
         $counts['denied']++;
         continue;
     }
 
-    // Count completed stages
     $stages = $conn->query("
         SELECT COUNT(*) total,
                SUM(status='completed') completed
@@ -51,7 +47,6 @@ while ($p = $projects->fetch_assoc()) {
 
 $totalProjects = array_sum($counts);
 
-/* ======================= LINE GRAPH DATA ======================= */
 $budget_labels = [];
 $allocated_data = [];
 $spent_data = [];
@@ -68,12 +63,11 @@ $budget_q = $conn->query("
 ");
 
 while ($b = $budget_q->fetch_assoc()) {
-    $budget_labels[]   = $b['title'];
+    $budget_labels[] = $b['title'];
     $allocated_data[] = $b['allocated'];
-    $spent_data[]     = $b['spent'];
+    $spent_data[] = $b['spent'];
 }
 
-/* ======================= FETCH PROJECTS FOR PROGRESS ======================= */
 $projects_stmt = $conn->prepare("
     SELECT id, title FROM projects WHERE created_by=? AND status IN ('approved','in_progress','completed')
 ");
@@ -88,7 +82,6 @@ while ($proj = $projects->fetch_assoc()) {
     $completed = $conn->query("SELECT COUNT(*) FROM project_stages WHERE project_id=$pid AND status='completed'")->fetch_row()[0];
     $in_progress = $conn->query("SELECT COUNT(*) FROM project_stages WHERE project_id=$pid AND status='in_progress'")->fetch_row()[0];
 
-    // Weighted progress: completed=1, in_progress=0.5
     $progress_units = ($completed * 1) + ($in_progress * 0.5);
     $percent = $total_stages > 0 ? round(($progress_units / $total_stages) * 100) : 0;
 
@@ -99,7 +92,6 @@ while ($proj = $projects->fetch_assoc()) {
     ];
 }
 
-/* ======================= CONTRACTOR STATUS ======================= */
 $contractor_status = $conn->query("
     SELECT c.name contractor,
            p.title project,
@@ -194,114 +186,146 @@ $error_message = pullSessionMessage('error_message');
 <div class="row">
 <div class="col-3"><?php include "menu.php"; ?></div>
 
-<div class="col-9">
+<div class="col-9 dashboard-main">
+
+<div class="form-card page-hero">
+    <div class="page-hero__grid">
+        <div class="page-hero__copy">
+            <span class="eyebrow">Project Delivery</span>
+            <h3>Manage project progress, spending, resources, and collaboration in one panel.</h3>
+            <p>This workspace keeps your pipeline visible from project creation and approval through assignments, monitoring, and expenditure tracking.</p>
+            <div class="hero-actions">
+                <a class="back-btn" href="create_project.php">Create Project</a>
+                <a class="button-link btn-secondary" href="add_stage.php">Update Project Status</a>
+            </div>
+        </div>
+        <div class="hero-pills">
+            <div class="hero-pill"><strong><?= $totalProjects ?></strong>&nbsp; Total</div>
+            <div class="hero-pill"><strong><?= $counts['approved'] + $counts['in_progress'] ?></strong>&nbsp; Active</div>
+            <div class="hero-pill"><strong><?= $counts['completed'] ?></strong>&nbsp; Completed</div>
+        </div>
+    </div>
+</div>
 
 <?php if ($success_message): ?>
-<div class="form-card" style="margin-bottom:15px;">
-    <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+<div class="form-card">
+    <div class="msg success"><?= htmlspecialchars($success_message) ?></div>
 </div>
 <?php endif; ?>
 
 <?php if ($error_message): ?>
-<div class="form-card" style="margin-bottom:15px;">
+<div class="form-card">
     <div class="msg error"><?= htmlspecialchars($error_message) ?></div>
 </div>
 <?php endif; ?>
 
-<!-- ======================= SUMMARY CARDS ======================= -->
-<div class="row">
 <?php
 $cards = [
-    'Total Projects' => $totalProjects,
-    'Pending'        => $counts['pending'],
-    'Approved'       => $counts['approved'],
-    'In Progress'    => $counts['in_progress'],
-    'Completed'      => $counts['completed'],
-    'Denied'         => $counts['denied']
+    ['label' => 'Total Projects', 'value' => $totalProjects, 'class' => 'card-total', 'meta' => 'All created projects'],
+    ['label' => 'Pending', 'value' => $counts['pending'], 'class' => 'card-pending', 'meta' => 'Waiting for admin review'],
+    ['label' => 'Approved', 'value' => $counts['approved'], 'class' => 'card-approved', 'meta' => 'Ready to deliver'],
+    ['label' => 'In Progress', 'value' => $counts['in_progress'], 'class' => 'card-info', 'meta' => 'Currently active'],
+    ['label' => 'Completed', 'value' => $counts['completed'], 'class' => 'card-completed', 'meta' => 'Closed successfully'],
+    ['label' => 'Denied', 'value' => $counts['denied'], 'class' => 'card-denied', 'meta' => 'Needs revision']
 ];
-foreach ($cards as $t => $v):
 ?>
-<div class="col-3">
-    <div class="form-card" style="text-align:center;">
-        <h3><?= $t ?></h3>
-        <h2><?= $v ?></h2>
+<div class="summary-cards">
+<?php foreach ($cards as $card): ?>
+    <div class="summary-card <?= $card['class'] ?>">
+        <h3><?= $card['label'] ?></h3>
+        <h2><?= $card['value'] ?></h2>
+        <p class="metric-meta"><?= $card['meta'] ?></p>
     </div>
-</div>
 <?php endforeach; ?>
 </div>
 
-<!-- ======================= PIE + LINE ======================= -->
-<div class="row">
-<div class="col-6">
-<div class="form-card">
-<h3>Project Status</h3>
-<canvas id="statusPie"></canvas>
+<div class="section-grid">
+<div class="chart-card">
+    <div class="section-header">
+        <div>
+            <span class="section-kicker">Status Mix</span>
+            <h3>Project Status</h3>
+        </div>
+        <p>See the current balance between pending, approved, active, completed, and denied work.</p>
+    </div>
+    <div class="chart-shell">
+        <canvas id="statusPie"></canvas>
+    </div>
+</div>
+
+<div class="chart-card">
+    <div class="section-header">
+        <div>
+            <span class="section-kicker">Finance Overview</span>
+            <h3>Budget vs Spending</h3>
+        </div>
+        <p>Compare planned allocation and actual spending across approved, active, and completed projects.</p>
+    </div>
+    <div class="chart-shell">
+        <canvas id="budgetLine"></canvas>
+    </div>
 </div>
 </div>
 
-<div class="col-6">
-<div class="form-card">
-<h3>Budget vs Spending (Active Projects)</h3>
-<canvas id="budgetLine"></canvas>
-</div>
-</div>
-</div>
-
-<!-- ===================== PROJECT PROGRESS ====================== -->
-        <div class="row">
-            <div class="col-12">
-                <div class="form-card">
-                    <h3>Project Progress</h3>
-                    <?php if (empty($progress_data)): ?>
-                        <p>No approved or in-progress projects yet.</p>
-                    <?php else: ?>
-                        <?php foreach ($progress_data as $p): ?>
-                            <strong><?= formatProjectCode($p['id']) ?> - <?= htmlspecialchars($p['title']) ?></strong>
-                            <div style="background:#ddd;width:100%;height:20px;border-radius:5px;margin-bottom:5px;">
-                                <div style="
-                                    width:<?= $p['percent'] ?>%;
-                                    background:<?= $p['percent']==100?'#1565c0':'#2e7d32' ?>;
-                                    height:100%;
-                                    border-radius:5px;
-                                "></div>
-                            </div>
-                            <span><?= $p['percent'] ?>% Completed</span> &nbsp;|&nbsp;
-                            <a href="view_stages.php?project_id=<?= $p['id'] ?>">View Status</a>
-                            <br><br>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+<div class="data-card">
+    <div class="section-header">
+        <div>
+            <span class="section-kicker">Progress Tracker</span>
+            <h3>Project Progress</h3>
+        </div>
+        <p>Keep each active project tied to a visual completion bar and direct access to its status timeline.</p>
+    </div>
+    <?php if (empty($progress_data)): ?>
+        <div class="empty-state">No approved or active projects yet.</div>
+    <?php else: ?>
+        <div class="progress-list">
+            <?php foreach ($progress_data as $p): ?>
+                <div class="progress-item">
+                    <div class="progress-item__head">
+                        <div><strong><?= formatProjectCode($p['id']) ?> - <?= htmlspecialchars($p['title']) ?></strong></div>
+                        <div class="progress-item__meta"><?= $p['percent'] ?>% complete</div>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill<?= $p['percent'] == 100 ? ' is-complete' : '' ?>" style="width:<?= $p['percent'] ?>%;"></div>
+                    </div>
+                    <div class="progress-foot">
+                        <span><?= $p['percent'] == 100 ? 'Completed project timeline' : 'Progress based on project status items' ?></span>
+                        <a href="view_stages.php?project_id=<?= $p['id'] ?>">View Status</a>
+                    </div>
                 </div>
-</div>
-</div>
-
-<div class="row">
-<div class="col-4">
-<div class="form-card" style="text-align:center;">
-<h3>Over Budget Projects</h3>
-<h2 style="color:#d32f2f;"><?= $over_budget_projects_count ?></h2>
-<a href="project_expenses.php">Review Expenses</a>
-</div>
-</div>
-<div class="col-4">
-<div class="form-card" style="text-align:center;">
-<h3>Over Budget Status Items</h3>
-<h2 style="color:#d32f2f;"><?= $over_budget_status_items_count ?></h2>
-<a href="add_stage.php">Manage Project Status</a>
-</div>
-</div>
-<div class="col-4">
-<div class="form-card" style="text-align:center;">
-<h3>Internal Messages</h3>
-<h2 style="color:#1565c0;"><?= $collaboration_message_count ?></h2>
-<a href="project_collaboration.php">Open Collaboration</a>
-</div>
-</div>
+            <?php endforeach; ?>
+        </div>
+    <?php endif; ?>
 </div>
 
-<div class="row">
-<div class="col-6">
-<div class="form-card">
-<h3>Budget Watchlist</h3>
+<div class="alert-grid">
+    <div class="summary-card card-denied">
+        <h3>Over Budget Projects</h3>
+        <h2><?= $over_budget_projects_count ?></h2>
+        <p class="metric-meta"><a href="project_expenses.php">Review expenses</a></p>
+    </div>
+    <div class="summary-card card-pending">
+        <h3>Over Budget Status Items</h3>
+        <h2><?= $over_budget_status_items_count ?></h2>
+        <p class="metric-meta"><a href="add_stage.php">Manage project status</a></p>
+    </div>
+    <div class="summary-card card-info">
+        <h3>Internal Messages</h3>
+        <h2><?= $collaboration_message_count ?></h2>
+        <p class="metric-meta"><a href="project_collaboration.php">Open collaboration</a></p>
+    </div>
+</div>
+
+<div class="section-grid">
+<div class="data-card">
+<div class="section-header">
+    <div>
+        <span class="section-kicker">Finance Watchlist</span>
+        <h3>Budget Watchlist</h3>
+    </div>
+    <p>Compare allocation, remaining budget, and actual spending for active project work.</p>
+</div>
+<div class="table-wrap">
 <table class="dashboard-table">
 <tr>
 <th>Project ID</th>
@@ -329,7 +353,7 @@ Unallocated: MWK <?= number_format($remaining_to_allocate, 2) ?><br>
 Spent: MWK <?= number_format((float) $budget_row['total_spent'], 2) ?><br>
 Budget: MWK <?= number_format((float) $budget_row['total_budget'], 2) ?>
 </td>
-<td style="color:<?= $remaining_budget < 0 ? '#d32f2f' : '#2e7d32' ?>;">
+<td style="color:<?= $remaining_budget < 0 ? '#b74b3d' : '#1d7a4c' ?>;">
 <?= $budget_state ?>
 </td>
 </tr>
@@ -338,9 +362,15 @@ Budget: MWK <?= number_format((float) $budget_row['total_budget'], 2) ?>
 </div>
 </div>
 
-<div class="col-6">
-<div class="form-card">
-<h3>Resource Allocation</h3>
+<div class="data-card">
+<div class="section-header">
+    <div>
+        <span class="section-kicker">Team Visibility</span>
+        <h3>Resource Allocation</h3>
+    </div>
+    <p>See how many team members, assigned tasks, and contractors are supporting each project.</p>
+</div>
+<div class="table-wrap">
 <table class="dashboard-table">
 <tr>
 <th>Project ID</th>
@@ -368,12 +398,15 @@ Budget: MWK <?= number_format((float) $budget_row['total_budget'], 2) ?>
 </div>
 </div>
 
-<!-- ======================= CONTRACTOR STATUS ======================= -->
-<div class="row">
-<div class="col-12">
-<div class="form-card">
-<h3>Contractor Assignments</h3>
-
+<div class="data-card">
+<div class="section-header">
+    <div>
+        <span class="section-kicker">Contractor Overview</span>
+        <h3>Contractor Assignments</h3>
+    </div>
+    <p>Track the contractor linked to each project together with the current workflow status.</p>
+</div>
+<div class="table-wrap">
 <table class="dashboard-table">
 <tr>
 <th>Project ID</th>
@@ -388,8 +421,7 @@ Budget: MWK <?= number_format((float) $budget_row['total_budget'], 2) ?>
 </tr>
 <?php endif; ?>
 
-<?php while($c = $contractor_status->fetch_assoc()): 
-    // Get project stage info
+<?php while($c = $contractor_status->fetch_assoc()):
     $stage_info = $conn->query("
         SELECT COUNT(*) total,
                SUM(status='completed') completed
@@ -403,9 +435,13 @@ Budget: MWK <?= number_format((float) $budget_row['total_budget'], 2) ?>
         $project_status = $conn->query("
             SELECT status FROM projects WHERE id={$c['project_id']}
         ")->fetch_assoc();
-        if ($project_status['status'] === 'pending') $display_status = "Waiting for approval";
-        elseif ($project_status['status'] === 'approved') $display_status = "Approved";
-        else $display_status = formatStatusLabel($project_status['status']);
+        if ($project_status['status'] === 'pending') {
+            $display_status = "Waiting for approval";
+        } elseif ($project_status['status'] === 'approved') {
+            $display_status = "Approved";
+        } else {
+            $display_status = formatStatusLabel($project_status['status']);
+        }
     }
 ?>
 <tr>
@@ -419,7 +455,6 @@ Budget: MWK <?= number_format((float) $budget_row['total_budget'], 2) ?>
 </table>
 </div>
 </div>
-</div>
 
 </div>
 </div>
@@ -427,8 +462,7 @@ Budget: MWK <?= number_format((float) $budget_row['total_budget'], 2) ?>
 <?php include "footer.php"; ?>
 
 <script>
-/* PIE */
-new Chart(statusPie,{
+new Chart(statusPie, {
 type:'pie',
 data:{
 labels:['Pending','Approved','In Progress','Completed','Denied'],
@@ -440,13 +474,21 @@ data:[
 <?= $counts['completed'] ?>,
 <?= $counts['denied'] ?>
 ],
-backgroundColor:['#f57c00','#2e7d32','#0288d1','#1565c0','#d32f2f']
+backgroundColor:['#d89b2f','#2b7a52','#2d6f9f','#3554a0','#b74b3d']
 }]
+},
+options:{
+responsive:true,
+maintainAspectRatio:false,
+plugins:{
+legend:{
+labels:{ color:'#17333b' }
+}
+}
 }
 });
 
-/* LINE */
-new Chart(budgetLine,{
+new Chart(budgetLine, {
 type:'line',
 data:{
 labels:<?= json_encode($budget_labels) ?>,
@@ -454,14 +496,31 @@ datasets:[
 {
 label:'Allocated',
 data:<?= json_encode($allocated_data) ?>,
-tension:0.4
+tension:0.4,
+borderColor:'#0f766e',
+backgroundColor:'rgba(15,118,110,0.12)',
+fill:false
 },
 {
 label:'Spent',
 data:<?= json_encode($spent_data) ?>,
-tension:0.4
+tension:0.4,
+borderColor:'#c96b3a',
+backgroundColor:'rgba(201,107,58,0.12)',
+fill:false
 }
 ]
+},
+options:{
+responsive:true,
+maintainAspectRatio:false,
+plugins:{
+legend:{ labels:{ color:'#17333b' } }
+},
+scales:{
+x:{ ticks:{ color:'#5e7379' }, grid:{ color:'rgba(198,186,166,0.22)' } },
+y:{ beginAtZero:true, ticks:{ color:'#5e7379' }, grid:{ color:'rgba(198,186,166,0.22)' } }
+}
 }
 });
 </script>

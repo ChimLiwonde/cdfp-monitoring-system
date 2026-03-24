@@ -94,7 +94,9 @@ if ($role === 'admin') {
     $projects = $projects_stmt->get_result();
 }
 
+$available_project_count = $projects ? $projects->num_rows : 0;
 $selected_project = null;
+
 if ($selected_project_id > 0) {
     if ($role === 'admin') {
         $selected_stmt = $conn->prepare("
@@ -118,6 +120,9 @@ if ($selected_project_id > 0) {
 }
 
 $messages = [];
+$admin_message_count = 0;
+$lead_message_count = 0;
+
 if ($selected_project) {
     $messages_stmt = $conn->prepare("
         SELECT pcm.message, pcm.sender_role, pcm.created_at, u.username
@@ -129,7 +134,13 @@ if ($selected_project) {
     $messages_stmt->bind_param("i", $selected_project_id);
     $messages_stmt->execute();
     $messages_result = $messages_stmt->get_result();
+
     while ($row = $messages_result->fetch_assoc()) {
+        if ($row['sender_role'] === 'admin') {
+            $admin_message_count++;
+        } else {
+            $lead_message_count++;
+        }
         $messages[] = $row;
     }
 }
@@ -137,39 +148,18 @@ if ($selected_project) {
 $success_message = $_SESSION['success_message'] ?? '';
 unset($_SESSION['success_message']);
 $menu_file = $role === 'admin' ? 'adminmenu.php' : 'menu.php';
+$project_details_link = $selected_project
+    ? ($role === 'admin'
+        ? "admin_project_details.php?id=" . (int) $selected_project['id']
+        : "view_project_details.php?id=" . (int) $selected_project['id'])
+    : '';
 ?>
 <!DOCTYPE html>
 <html>
 <head>
     <title>Project Collaboration</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="../assets/css/flexible.css">
-    <style>
-        .chat-thread {
-            background: #f8fbfe;
-            border: 1px solid #d6eafc;
-            border-radius: 12px;
-            padding: 18px;
-            margin-top: 20px;
-        }
-        .chat-item {
-            border-radius: 12px;
-            padding: 14px;
-            margin-bottom: 12px;
-            background: #ffffff;
-            border: 1px solid #dfeaf5;
-        }
-        .chat-role-admin {
-            border-left: 4px solid #1565c0;
-        }
-        .chat-role-field {
-            border-left: 4px solid #2e7d32;
-        }
-        .chat-meta {
-            color: #666;
-            font-size: 13px;
-            margin-bottom: 6px;
-        }
-    </style>
 </head>
 <body>
 
@@ -177,59 +167,127 @@ $menu_file = $role === 'admin' ? 'adminmenu.php' : 'menu.php';
 
 <div class="row">
     <div class="col-3"><?php include $menu_file; ?></div>
-    <div class="col-9">
-        <div class="form-card">
-            <h3>Internal Project Collaboration</h3>
-            <p>This channel is private to admins and project leads. Public comments stay in the citizen feedback pages.</p>
+    <div class="col-9 dashboard-main">
+        <div class="form-card page-hero">
+            <div class="page-hero__grid">
+                <div class="page-hero__copy">
+                    <span class="eyebrow">Internal Collaboration</span>
+                    <h3>Coordinate project work in one private channel</h3>
+                    <p>This space is reserved for admins and project leads so budget concerns, coordination notes, and delivery decisions stay separate from public feedback.</p>
+                    <?php if ($selected_project): ?>
+                        <div class="hero-actions">
+                            <a href="<?= htmlspecialchars($project_details_link) ?>" class="back-btn">Open Project Details</a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <div class="hero-pills">
+                    <div class="hero-pill"><strong><?= $available_project_count ?></strong>&nbsp; Projects</div>
+                    <div class="hero-pill"><strong><?= count($messages) ?></strong>&nbsp; Messages</div>
+                </div>
+            </div>
+        </div>
 
+        <div class="data-card">
             <?php if ($success_message): ?>
-                <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+                <div class="msg success"><?= htmlspecialchars($success_message) ?></div>
             <?php elseif ($message !== ''): ?>
-                <div class="msg"><?= htmlspecialchars($message) ?></div>
+                <div class="msg error"><?= htmlspecialchars($message) ?></div>
             <?php endif; ?>
 
-            <form method="GET" style="margin-bottom:20px;">
-                <label>Select Project</label>
-                <select name="project_id" onchange="this.form.submit()" required>
-                    <option value="">-- Select Project --</option>
-                    <?php while ($project = $projects->fetch_assoc()): ?>
-                        <option value="<?= $project['id'] ?>" <?= $project['id'] === $selected_project_id ? 'selected' : '' ?>>
-                            <?php
-                            $label = formatProjectCode($project['id']) . ' - ' . $project['title'] . ' (' . formatStatusLabel($project['status']) . ')';
-                            if ($role === 'admin' && isset($project['field_officer'])) {
-                                $label .= ' | Project Lead: ' . $project['field_officer'];
-                            }
-                            ?>
-                            <?= htmlspecialchars($label) ?>
-                        </option>
-                    <?php endwhile; ?>
-                </select>
+            <div class="section-header">
+                <div>
+                    <span class="section-kicker">Workspace Selection</span>
+                    <h3>Choose a Project Thread</h3>
+                </div>
+                <p>Select a project to open its private conversation stream and keep coordination tied to the right record.</p>
+            </div>
+
+            <form method="GET">
+                <div class="form-grid">
+                    <div class="full-span">
+                        <label for="project_id">Select Project</label>
+                        <select id="project_id" name="project_id" onchange="this.form.submit()" required>
+                            <option value="">-- Select Project --</option>
+                            <?php while ($project = $projects->fetch_assoc()): ?>
+                                <option value="<?= (int) $project['id'] ?>" <?= (int) $project['id'] === $selected_project_id ? 'selected' : '' ?>>
+                                    <?php
+                                    $label = formatProjectCode($project['id']) . ' - ' . $project['title'] . ' (' . formatStatusLabel($project['status']) . ')';
+                                    if ($role === 'admin' && isset($project['field_officer'])) {
+                                        $label .= ' | Project Lead: ' . $project['field_officer'];
+                                    }
+                                    ?>
+                                    <?= htmlspecialchars($label) ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+                </div>
             </form>
+        </div>
 
-            <?php if ($selected_project): ?>
-                <div class="form-card" style="margin:0 0 20px 0;">
-                    <h4><?= formatProjectCode($selected_project['id']) ?> - <?= htmlspecialchars($selected_project['title']) ?></h4>
-                    <p><strong>Status:</strong> <?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?></p>
-                    <p><strong>District:</strong> <?= htmlspecialchars($selected_project['district']) ?></p>
-                    <p><strong>Location:</strong> <?= htmlspecialchars($selected_project['location']) ?></p>
-                    <p><strong>Project Lead:</strong> <?= htmlspecialchars($selected_project['field_officer']) ?></p>
+        <?php if ($selected_project): ?>
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Selected Project</span>
+                        <h3><?= formatProjectCode($selected_project['id']) ?> - <?= htmlspecialchars($selected_project['title']) ?></h3>
+                    </div>
+                    <p>Use the thread below for internal coordination linked directly to this project.</p>
                 </div>
 
-                <div class="form-card" style="margin-top:0;">
-                    <h4>Post Internal Message</h4>
-                    <form method="POST">
-                        <?= csrfInput('project_collaboration_form') ?>
-                        <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
-                        <textarea name="message" style="width:100%;min-height:120px;padding:12px;border:1px solid #90caf9;border-radius:8px;" placeholder="Share status updates, coordination notes, or budget concerns here." required></textarea>
+                <div class="detail-grid">
+                    <div class="detail-card">
+                        <strong>Status</strong>
+                        <span class="status-badge <?= htmlspecialchars($selected_project['status']) ?>"><?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>District</strong>
+                        <span><?= htmlspecialchars($selected_project['district']) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Location</strong>
+                        <span><?= htmlspecialchars($selected_project['location']) ?></span>
+                    </div>
+                    <div class="detail-card">
+                        <strong>Project Lead</strong>
+                        <span><?= htmlspecialchars($selected_project['field_officer']) ?></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Post Update</span>
+                        <h3>Send Internal Message</h3>
+                    </div>
+                    <p>Share project progress, assignment follow-ups, or risks that should stay within the delivery team.</p>
+                </div>
+
+                <form method="POST">
+                    <?= csrfInput('project_collaboration_form') ?>
+                    <input type="hidden" name="project_id" value="<?= (int) $selected_project['id'] ?>">
+                    <label for="message">Message</label>
+                    <textarea id="message" name="message" placeholder="Share status updates, coordination notes, or budget concerns here." required></textarea>
+                    <div class="hero-actions">
                         <input type="submit" name="send_message" value="Send Message">
-                    </form>
+                    </div>
+                </form>
+            </div>
+
+            <div class="data-card">
+                <div class="section-header">
+                    <div>
+                        <span class="section-kicker">Conversation</span>
+                        <h3>Project Thread</h3>
+                    </div>
+                    <p><?= $admin_message_count ?> admin messages and <?= $lead_message_count ?> project-lead messages are currently recorded for this workspace.</p>
                 </div>
 
-                <div class="chat-thread">
-                    <h4>Conversation</h4>
-                    <?php if (count($messages) === 0): ?>
-                        <p>No internal messages yet.</p>
-                    <?php else: ?>
+                <?php if (count($messages) === 0): ?>
+                    <div class="empty-state">No internal messages yet. Start the thread with your first project update.</div>
+                <?php else: ?>
+                    <div class="chat-thread">
                         <?php foreach ($messages as $chat): ?>
                             <?php $chatClass = $chat['sender_role'] === 'admin' ? 'chat-role-admin' : 'chat-role-field'; ?>
                             <div class="chat-item <?= $chatClass ?>">
@@ -240,12 +298,14 @@ $menu_file = $role === 'admin' ? 'adminmenu.php' : 'menu.php';
                                 <div><?= nl2br(htmlspecialchars($chat['message'])) ?></div>
                             </div>
                         <?php endforeach; ?>
-                    <?php endif; ?>
-                </div>
-            <?php else: ?>
-                <p>Select a project to view or post private collaboration messages.</p>
-            <?php endif; ?>
-        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        <?php else: ?>
+            <div class="data-card">
+                <div class="empty-state">Select a project to open its private collaboration thread.</div>
+            </div>
+        <?php endif; ?>
     </div>
 </div>
 
