@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 $role = $_SESSION['role'] ?? null;
 if ($role !== 'admin' && !isProjectLeadRole($role)) {
@@ -14,58 +14,62 @@ $selected_project_id = (int) ($_GET['project_id'] ?? $_POST['project_id'] ?? 0);
 $message = '';
 
 if (isset($_POST['send_message'])) {
-    $selected_project_id = (int) ($_POST['project_id'] ?? 0);
-    $chat_message = trim($_POST['message'] ?? '');
-
-    if ($selected_project_id <= 0 || $chat_message === '') {
-        $message = "Select a project and enter a message.";
+    if (!isValidCsrfToken('project_collaboration_form', $_POST['_csrf_token'] ?? '')) {
+        $message = "Your session expired. Please try posting the message again.";
     } else {
-        if ($role === 'admin') {
-            $project_stmt = $conn->prepare("
-                SELECT id, title, created_by, status
-                FROM projects
-                WHERE id = ?
-            ");
-            $project_stmt->bind_param("i", $selected_project_id);
+        $selected_project_id = (int) ($_POST['project_id'] ?? 0);
+        $chat_message = trim($_POST['message'] ?? '');
+
+        if ($selected_project_id <= 0 || $chat_message === '') {
+            $message = "Select a project and enter a message.";
         } else {
-            $project_stmt = $conn->prepare("
-                SELECT id, title, created_by, status
-                FROM projects
-                WHERE id = ? AND created_by = ?
-            ");
-            $project_stmt->bind_param("ii", $selected_project_id, $user_id);
-        }
-
-        $project_stmt->execute();
-        $project = $project_stmt->get_result()->fetch_assoc();
-
-        if (!$project) {
-            $message = "The selected project was not found.";
-        } else {
-            $insert = $conn->prepare("
-                INSERT INTO project_collaboration_messages (project_id, sender_id, sender_role, message)
-                VALUES (?, ?, ?, ?)
-            ");
-            $insert->bind_param("iiss", $selected_project_id, $user_id, $role, $chat_message);
-
-            if ($insert->execute()) {
-                logProjectActivity(
-                    $conn,
-                    $selected_project_id,
-                    'collaboration_message_posted',
-                    $user_id,
-                    $role,
-                    null,
-                    null,
-                    'Internal collaboration message posted.'
-                );
-
-                $_SESSION['success_message'] = "Internal collaboration message posted for " . formatProjectCode($selected_project_id) . ".";
-                header("Location: project_collaboration.php?project_id={$selected_project_id}");
-                exit();
+            if ($role === 'admin') {
+                $project_stmt = $conn->prepare("
+                    SELECT id, title, created_by, status
+                    FROM projects
+                    WHERE id = ?
+                ");
+                $project_stmt->bind_param("i", $selected_project_id);
+            } else {
+                $project_stmt = $conn->prepare("
+                    SELECT id, title, created_by, status
+                    FROM projects
+                    WHERE id = ? AND created_by = ?
+                ");
+                $project_stmt->bind_param("ii", $selected_project_id, $user_id);
             }
 
-            $message = "Failed to send the collaboration message.";
+            $project_stmt->execute();
+            $project = $project_stmt->get_result()->fetch_assoc();
+
+            if (!$project) {
+                $message = "The selected project was not found.";
+            } else {
+                $insert = $conn->prepare("
+                    INSERT INTO project_collaboration_messages (project_id, sender_id, sender_role, message)
+                    VALUES (?, ?, ?, ?)
+                ");
+                $insert->bind_param("iiss", $selected_project_id, $user_id, $role, $chat_message);
+
+                if ($insert->execute()) {
+                    logProjectActivity(
+                        $conn,
+                        $selected_project_id,
+                        'collaboration_message_posted',
+                        $user_id,
+                        $role,
+                        null,
+                        null,
+                        'Internal collaboration message posted.'
+                    );
+
+                    $_SESSION['success_message'] = "Internal collaboration message posted for " . formatProjectCode($selected_project_id) . ".";
+                    header("Location: project_collaboration.php?project_id={$selected_project_id}");
+                    exit();
+                }
+
+                $message = "Failed to send the collaboration message.";
+            }
         }
     }
 }
@@ -214,6 +218,7 @@ $menu_file = $role === 'admin' ? 'adminmenu.php' : 'menu.php';
                 <div class="form-card" style="margin-top:0;">
                     <h4>Post Internal Message</h4>
                     <form method="POST">
+                        <?= csrfInput('project_collaboration_form') ?>
                         <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
                         <textarea name="message" style="width:100%;min-height:120px;padding:12px;border:1px solid #90caf9;border-radius:8px;" placeholder="Share status updates, coordination notes, or budget concerns here." required></textarea>
                         <input type="submit" name="send_message" value="Send Message">

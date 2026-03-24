@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 /* ===========================
    SECURITY CHECK
@@ -18,40 +18,44 @@ $user_id = $_SESSION['user_id'];
    CHANGE PASSWORD LOGIC
 =========================== */
 if (isset($_POST['change_password'])) {
-
-    $old_password = $_POST['old_password'];
-    $new_password = $_POST['new_password'];
-    $confirm_password = $_POST['confirm_password'];
-
-    if ($new_password !== $confirm_password) {
-        $msg = "New passwords do not match.";
+    if (!isValidCsrfToken('officer_settings_form', $_POST['_csrf_token'] ?? '')) {
+        $msg = "Your session expired. Please try updating your password again.";
     } else {
+        $old_password = $_POST['old_password'];
+        $new_password = $_POST['new_password'];
+        $confirm_password = $_POST['confirm_password'];
 
-        /* FETCH CURRENT PASSWORD */
-        $stmt = $conn->prepare("
-            SELECT password FROM users WHERE id = ?
-        ");
-        $stmt->bind_param("i", $user_id);
-        $stmt->execute();
-        $stmt->bind_result($hashed_password);
-        $stmt->fetch();
-        $stmt->close();
-
-        /* VERIFY OLD PASSWORD */
-        if (!password_verify($old_password, $hashed_password)) {
-            $msg = "Old password is incorrect.";
+        if ($new_password !== $confirm_password) {
+            $msg = "New passwords do not match.";
+        } elseif (strlen($new_password) < 8) {
+            $msg = "Use a password with at least 8 characters.";
         } else {
-
-            /* UPDATE PASSWORD */
-            $new_hashed = password_hash($new_password, PASSWORD_DEFAULT);
-
-            $update = $conn->prepare("
-                UPDATE users SET password = ? WHERE id = ?
+            /* FETCH CURRENT PASSWORD */
+            $stmt = $conn->prepare("
+                SELECT password FROM users WHERE id = ?
             ");
-            $update->bind_param("si", $new_hashed, $user_id);
-            $update->execute();
+            $stmt->bind_param("i", $user_id);
+            $stmt->execute();
+            $stmt->bind_result($hashed_password);
+            $stmt->fetch();
+            $stmt->close();
 
-            $msg = "Password changed successfully.";
+            /* VERIFY OLD PASSWORD */
+            if (!password_verify($old_password, $hashed_password)) {
+                $msg = "Old password is incorrect.";
+            } else {
+
+                /* UPDATE PASSWORD */
+                $new_hashed = password_hash($new_password, PASSWORD_DEFAULT);
+
+                $update = $conn->prepare("
+                    UPDATE users SET password = ? WHERE id = ?
+                ");
+                $update->bind_param("si", $new_hashed, $user_id);
+                $update->execute();
+
+                $msg = "Password changed successfully.";
+            }
         }
     }
 }
@@ -77,9 +81,10 @@ if (isset($_POST['change_password'])) {
         <div class="form-card">
             <h3>Change Password</h3>
 
-            <?php if ($msg != "") echo "<div class='msg'>$msg</div>"; ?>
+            <?php if ($msg != "") echo "<div class='msg'>" . htmlspecialchars($msg) . "</div>"; ?>
 
             <form method="POST">
+                <?= csrfInput('officer_settings_form') ?>
 
                 Current Password
                 <input type="password" name="old_password" required>

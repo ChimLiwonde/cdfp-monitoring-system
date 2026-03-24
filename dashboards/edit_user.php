@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
 require "../config/db.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
@@ -8,7 +9,10 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 }
 
 $id = intval($_GET['id']);
-$user = $conn->query("SELECT * FROM users WHERE id=$id")->fetch_assoc();
+$userStmt = $conn->prepare("SELECT * FROM users WHERE id = ?");
+$userStmt->bind_param("i", $id);
+$userStmt->execute();
+$user = $userStmt->get_result()->fetch_assoc();
 if (!$user) {
     header("Location: manage_users.php");
     exit();
@@ -17,29 +21,40 @@ if (!$user) {
 $msg = "";
 
 if (isset($_POST['update_user'])) {
-    $username = $_POST['username'];
-    $email = $_POST['email'];
-    $location = $_POST['location'];
-    $role = $_POST['role'];
-
-    if (!empty($_POST['password'])) {
-        $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-        $stmt = $conn->prepare("
-            UPDATE users SET username=?, email=?, location=?, role=?, password=? WHERE id=?
-        ");
-        $stmt->bind_param("sssssi", $username, $email, $location, $role, $password, $id);
+    if (!isValidCsrfToken('edit_user_form', $_POST['_csrf_token'] ?? '')) {
+        $msg = "Your session expired. Please try updating the user again.";
     } else {
-        $stmt = $conn->prepare("
-            UPDATE users SET username=?, email=?, location=?, role=? WHERE id=?
-        ");
-        $stmt->bind_param("ssssi", $username, $email, $location, $role, $id);
-    }
+        $username = trim($_POST['username']);
+        $email = trim($_POST['email']);
+        $location = trim($_POST['location']);
+        $role = $_POST['role'];
 
-    if ($stmt->execute()) {
-        header("Location: manage_users.php");
-        exit();
-    } else {
-        $msg = "Update failed.";
+        if ($username === '' || $email === '' || $location === '') {
+            $msg = "Please fill in all required user fields.";
+        } elseif (!empty($_POST['password']) && strlen($_POST['password']) < 8) {
+            $msg = "New passwords must be at least 8 characters long.";
+        } else {
+            if (!empty($_POST['password'])) {
+                $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+                $stmt = $conn->prepare("
+                    UPDATE users SET username=?, email=?, location=?, role=?, password=? WHERE id=?
+                ");
+                $stmt->bind_param("sssssi", $username, $email, $location, $role, $password, $id);
+            } else {
+                $stmt = $conn->prepare("
+                    UPDATE users SET username=?, email=?, location=?, role=? WHERE id=?
+                ");
+                $stmt->bind_param("ssssi", $username, $email, $location, $role, $id);
+            }
+
+            if ($stmt->execute()) {
+                $_SESSION['success_message'] = "User updated successfully.";
+                header("Location: manage_users.php");
+                exit();
+            } else {
+                $msg = "Update failed.";
+            }
+        }
     }
 }
 ?>
@@ -59,9 +74,10 @@ if (isset($_POST['update_user'])) {
 <div class="form-card">
 
 <h3>Edit User</h3>
-<?php if ($msg) echo "<div class='msg'>$msg</div>"; ?>
+<?php if ($msg) echo "<div class='msg'>" . htmlspecialchars($msg) . "</div>"; ?>
 
 <form method="POST">
+    <?= csrfInput('edit_user_form') ?>
     Username
     <input type="text" name="username" value="<?= htmlspecialchars($user['username']) ?>" required>
 

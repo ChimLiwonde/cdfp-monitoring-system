@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
@@ -30,107 +30,115 @@ function fetchOfficerProject($conn, $projectId, $userId)
 }
 
 if (isset($_POST['add_team_member'])) {
-    $project_id = (int) ($_POST['project_id'] ?? 0);
-    $full_name = trim($_POST['full_name'] ?? '');
-    $role_title = trim($_POST['role_title'] ?? '');
-    $contact_info = trim($_POST['contact_info'] ?? '');
-
-    $project = fetchOfficerProject($conn, $project_id, $user_id);
-
-    if (!$project) {
-        $message = "The selected project was not found.";
-    } elseif ($project['status'] === 'completed') {
-        $message = "Completed projects are read-only for new task assignments.";
-    } elseif ($full_name === '' || $role_title === '') {
-        $message = "Please provide the team member name and role.";
+    if (!isValidCsrfToken('add_team_member_form', $_POST['_csrf_token'] ?? '')) {
+        $message = "Your session expired. Please try adding the team member again.";
     } else {
-        $stmt = $conn->prepare("
-            INSERT INTO project_team_members (project_id, full_name, role_title, contact_info, created_by)
-            VALUES (?, ?, ?, ?, ?)
-        ");
-        $stmt->bind_param("isssi", $project_id, $full_name, $role_title, $contact_info, $user_id);
+        $project_id = (int) ($_POST['project_id'] ?? 0);
+        $full_name = trim($_POST['full_name'] ?? '');
+        $role_title = trim($_POST['role_title'] ?? '');
+        $contact_info = trim($_POST['contact_info'] ?? '');
 
-        if ($stmt->execute()) {
-            logProjectActivity(
-                $conn,
-                $project_id,
-                'team_member_added',
-                $user_id,
-                $_SESSION['role'] ?? 'field_officer',
-                null,
-                null,
-                $full_name . ' added as ' . $role_title . '.'
-            );
+        $project = fetchOfficerProject($conn, $project_id, $user_id);
 
-            $_SESSION['success_message'] = $full_name . " added to " . formatProjectCode($project_id) . ".";
-            header("Location: task_assignments.php?project_id={$project_id}");
-            exit();
-        }
-
-        $message = "Failed to add the team member.";
-    }
-}
-
-if (isset($_POST['assign_task'])) {
-    $project_id = (int) ($_POST['project_id'] ?? 0);
-    $stage_id = (int) ($_POST['stage_id'] ?? 0);
-    $team_member_id = (int) ($_POST['team_member_id'] ?? 0);
-    $assignment_notes = trim($_POST['assignment_notes'] ?? '');
-
-    $project = fetchOfficerProject($conn, $project_id, $user_id);
-
-    if (!$project) {
-        $message = "The selected project was not found.";
-    } elseif ($project['status'] === 'completed') {
-        $message = "Completed projects are read-only for new task assignments.";
-    } else {
-        $stage_stmt = $conn->prepare("
-            SELECT id, stage_name
-            FROM project_stages
-            WHERE id = ? AND project_id = ?
-        ");
-        $stage_stmt->bind_param("ii", $stage_id, $project_id);
-        $stage_stmt->execute();
-        $stage = $stage_stmt->get_result()->fetch_assoc();
-
-        $member_stmt = $conn->prepare("
-            SELECT id, full_name
-            FROM project_team_members
-            WHERE id = ? AND project_id = ?
-        ");
-        $member_stmt->bind_param("ii", $team_member_id, $project_id);
-        $member_stmt->execute();
-        $team_member = $member_stmt->get_result()->fetch_assoc();
-
-        if (!$stage || !$team_member) {
-            $message = "Please select a valid status item and team member.";
+        if (!$project) {
+            $message = "The selected project was not found.";
+        } elseif ($project['status'] === 'completed') {
+            $message = "Completed projects are read-only for new task assignments.";
+        } elseif ($full_name === '' || $role_title === '') {
+            $message = "Please provide the team member name and role.";
         } else {
             $stmt = $conn->prepare("
-                INSERT INTO project_stage_assignments (stage_id, team_member_id, assigned_by, assignment_notes)
-                VALUES (?, ?, ?, ?)
+                INSERT INTO project_team_members (project_id, full_name, role_title, contact_info, created_by)
+                VALUES (?, ?, ?, ?, ?)
             ");
-            $stmt->bind_param("iiis", $stage_id, $team_member_id, $user_id, $assignment_notes);
+            $stmt->bind_param("isssi", $project_id, $full_name, $role_title, $contact_info, $user_id);
 
             if ($stmt->execute()) {
                 logProjectActivity(
                     $conn,
                     $project_id,
-                    'task_assigned',
+                    'team_member_added',
                     $user_id,
                     $_SESSION['role'] ?? 'field_officer',
                     null,
                     null,
-                    $stage['stage_name'] . ' assigned to ' . $team_member['full_name'] . '.'
+                    $full_name . ' added as ' . $role_title . '.'
                 );
 
-                $_SESSION['success_message'] = "Task assignment saved for " . formatProjectCode($project_id) . ".";
-                header("Location: task_assignments.php?project_id={$project_id}&stage_id={$stage_id}");
+                $_SESSION['success_message'] = $full_name . " added to " . formatProjectCode($project_id) . ".";
+                header("Location: task_assignments.php?project_id={$project_id}");
                 exit();
             }
 
-            $message = ((int) $conn->errno === 1062)
-                ? "That team member is already assigned to this status item."
-                : "Failed to save the task assignment.";
+            $message = "Failed to add the team member.";
+        }
+    }
+}
+
+if (isset($_POST['assign_task'])) {
+    if (!isValidCsrfToken('assign_task_form', $_POST['_csrf_token'] ?? '')) {
+        $message = "Your session expired. Please try saving the task assignment again.";
+    } else {
+        $project_id = (int) ($_POST['project_id'] ?? 0);
+        $stage_id = (int) ($_POST['stage_id'] ?? 0);
+        $team_member_id = (int) ($_POST['team_member_id'] ?? 0);
+        $assignment_notes = trim($_POST['assignment_notes'] ?? '');
+
+        $project = fetchOfficerProject($conn, $project_id, $user_id);
+
+        if (!$project) {
+            $message = "The selected project was not found.";
+        } elseif ($project['status'] === 'completed') {
+            $message = "Completed projects are read-only for new task assignments.";
+        } else {
+            $stage_stmt = $conn->prepare("
+                SELECT id, stage_name
+                FROM project_stages
+                WHERE id = ? AND project_id = ?
+            ");
+            $stage_stmt->bind_param("ii", $stage_id, $project_id);
+            $stage_stmt->execute();
+            $stage = $stage_stmt->get_result()->fetch_assoc();
+
+            $member_stmt = $conn->prepare("
+                SELECT id, full_name
+                FROM project_team_members
+                WHERE id = ? AND project_id = ?
+            ");
+            $member_stmt->bind_param("ii", $team_member_id, $project_id);
+            $member_stmt->execute();
+            $team_member = $member_stmt->get_result()->fetch_assoc();
+
+            if (!$stage || !$team_member) {
+                $message = "Please select a valid status item and team member.";
+            } else {
+                $stmt = $conn->prepare("
+                    INSERT INTO project_stage_assignments (stage_id, team_member_id, assigned_by, assignment_notes)
+                    VALUES (?, ?, ?, ?)
+                ");
+                $stmt->bind_param("iiis", $stage_id, $team_member_id, $user_id, $assignment_notes);
+
+                if ($stmt->execute()) {
+                    logProjectActivity(
+                        $conn,
+                        $project_id,
+                        'task_assigned',
+                        $user_id,
+                        $_SESSION['role'] ?? 'field_officer',
+                        null,
+                        null,
+                        $stage['stage_name'] . ' assigned to ' . $team_member['full_name'] . '.'
+                    );
+
+                    $_SESSION['success_message'] = "Task assignment saved for " . formatProjectCode($project_id) . ".";
+                    header("Location: task_assignments.php?project_id={$project_id}&stage_id={$stage_id}");
+                    exit();
+                }
+
+                $message = ((int) $conn->errno === 1062)
+                    ? "That team member is already assigned to this status item."
+                    : "Failed to save the task assignment.";
+            }
         }
     }
 }
@@ -258,6 +266,7 @@ unset($_SESSION['success_message']);
                         <div class="form-card" style="margin-top:0;">
                             <h4>Add Team Member</h4>
                             <form method="POST">
+                                <?= csrfInput('add_team_member_form') ?>
                                 <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
 
                                 Full Name
@@ -278,6 +287,7 @@ unset($_SESSION['success_message']);
                         <div class="form-card" style="margin-top:0;">
                             <h4>Assign Team Member to Status Item</h4>
                             <form method="POST">
+                                <?= csrfInput('assign_task_form') ?>
                                 <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
 
                                 Status Item

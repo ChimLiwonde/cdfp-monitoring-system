@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
 require "../config/db.php";
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
@@ -8,8 +9,13 @@ if (!isset($_SESSION['role']) || $userId <= 0) {
     exit();
 }
 
-$notificationId = (int) ($_GET['id'] ?? 0);
+$notificationId = (int) ($_POST['id'] ?? 0);
 if ($notificationId <= 0) {
+    header("Location: notifications.php");
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isValidCsrfToken('open_notification_form', $_POST['_csrf_token'] ?? '')) {
     header("Location: notifications.php");
     exit();
 }

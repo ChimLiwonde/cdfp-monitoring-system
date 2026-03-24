@@ -1,34 +1,48 @@
 <?php
+require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
 require "../config/db.php";
 
 $message = "";
 
 if (isset($_POST['register'])) {
-
-    $username  = $_POST['user_name'];
-    $email     = $_POST['user_email'];
-    $location  = $_POST['location'];
-    $password  = password_hash($_POST['user_password'], PASSWORD_DEFAULT);
-
-    // Check email exists
-    $check = $conn->prepare("SELECT id FROM users WHERE email = ?");
-    $check->bind_param("s", $email);
-    $check->execute();
-    $check->store_result();
-
-    if ($check->num_rows > 0) {
-        $message = "Email already exists!";
+    if (!isValidCsrfToken('create_account_form', $_POST['_csrf_token'] ?? '')) {
+        $message = "Your session expired. Please try registering again.";
     } else {
 
-        $role = 'public';
-        $stmt = $conn->prepare("INSERT INTO users (username, email, password, location, role) VALUES (?, ?, ?, ?, ?)");
-        $stmt->bind_param("sssss", $username, $email, $password, $location, $role);
+        $username = trim($_POST['user_name'] ?? '');
+        $email = trim($_POST['user_email'] ?? '');
+        $location = trim($_POST['location'] ?? '');
+        $rawPassword = $_POST['user_password'] ?? '';
 
-        if ($stmt->execute()) {
-            header("Location: login.php");
-            exit();
+        if ($username === '' || $email === '' || $location === '') {
+            $message = "Please fill in all required fields.";
+        } elseif (strlen($rawPassword) < 8) {
+            $message = "Password must be at least 8 characters long.";
         } else {
-            $message = "Registration failed!";
+            $password = password_hash($rawPassword, PASSWORD_DEFAULT);
+
+            // Check email exists
+            $check = $conn->prepare("SELECT id FROM users WHERE email = ?");
+            $check->bind_param("s", $email);
+            $check->execute();
+            $check->store_result();
+
+            if ($check->num_rows > 0) {
+                $message = "Email already exists!";
+            } else {
+
+                $role = 'public';
+                $stmt = $conn->prepare("INSERT INTO users (username, email, password, location, role) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param("sssss", $username, $email, $password, $location, $role);
+
+                if ($stmt->execute()) {
+                    header("Location: login.php");
+                    exit();
+                } else {
+                    $message = "Registration failed!";
+                }
+            }
         }
     }
 }
@@ -56,9 +70,10 @@ if (isset($_POST['register'])) {
 
         <h3>Create Your Account</h3>
 
-        <?php if($message!="") echo "<div class='msg'>$message</div>"; ?>
+        <?php if($message!="") echo "<div class='msg'>" . htmlspecialchars($message) . "</div>"; ?>
 
         <form method="POST">
+            <?= csrfInput('create_account_form') ?>
 
             Username
             <input type="text" name="user_name" required>

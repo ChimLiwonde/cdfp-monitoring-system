@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 /* ===========================
    SECURITY CHECK
@@ -61,43 +61,46 @@ $contractors = $conn->query("
    ASSIGN EXISTING CONTRACTOR
 =========================== */
 if (isset($_POST['assign_contractor'])) {
-
-    $project_id    = intval($_POST['project_id']);
-    $contractor_id = intval($_POST['contractor_id']);
-
-    $stmt = $conn->prepare("
-        INSERT INTO contractor_projects
-        (contractor_id, project_id, assigned_by)
-        VALUES (?, ?, ?)
-    ");
-    $stmt->bind_param("iii", $contractor_id, $project_id, $user_id);
-
-    if ($stmt->execute()) {
-        $detailStmt = $conn->prepare("
-            SELECT c.name AS contractor_name, p.title AS project_title
-            FROM contractors c
-            JOIN projects p ON p.id = ?
-            WHERE c.id = ?
-            LIMIT 1
-        ");
-        $detailStmt->bind_param("ii", $project_id, $contractor_id);
-        $detailStmt->execute();
-        $detail = $detailStmt->get_result()->fetch_assoc();
-
-        logProjectActivity(
-            $conn,
-            $project_id,
-            'contractor_assigned',
-            $user_id,
-            $_SESSION['role'] ?? 'field_officer',
-            null,
-            null,
-            ($detail ? $detail['contractor_name'] : 'Contractor') . " assigned to project."
-        );
-
-        $msg = "Contractor assigned successfully to " . formatProjectCode($project_id) . ".";
+    if (!isValidCsrfToken('assign_contractor_form', $_POST['_csrf_token'] ?? '')) {
+        $msg = "Your session expired. Please try assigning the contractor again.";
     } else {
-        $msg = "Failed to assign contractor.";
+        $project_id    = intval($_POST['project_id']);
+        $contractor_id = intval($_POST['contractor_id']);
+
+        $stmt = $conn->prepare("
+            INSERT INTO contractor_projects
+            (contractor_id, project_id, assigned_by)
+            VALUES (?, ?, ?)
+        ");
+        $stmt->bind_param("iii", $contractor_id, $project_id, $user_id);
+
+        if ($stmt->execute()) {
+            $detailStmt = $conn->prepare("
+                SELECT c.name AS contractor_name, p.title AS project_title
+                FROM contractors c
+                JOIN projects p ON p.id = ?
+                WHERE c.id = ?
+                LIMIT 1
+            ");
+            $detailStmt->bind_param("ii", $project_id, $contractor_id);
+            $detailStmt->execute();
+            $detail = $detailStmt->get_result()->fetch_assoc();
+
+            logProjectActivity(
+                $conn,
+                $project_id,
+                'contractor_assigned',
+                $user_id,
+                $_SESSION['role'] ?? 'field_officer',
+                null,
+                null,
+                ($detail ? $detail['contractor_name'] : 'Contractor') . " assigned to project."
+            );
+
+            $msg = "Contractor assigned successfully to " . formatProjectCode($project_id) . ".";
+        } else {
+            $msg = "Failed to assign contractor.";
+        }
     }
 }
 
@@ -105,23 +108,26 @@ if (isset($_POST['assign_contractor'])) {
    ADD NEW CONTRACTOR
 =========================== */
 if (isset($_POST['add_new_contractor'])) {
-
-    $name    = trim($_POST['name']);
-    $phone   = trim($_POST['phone']);
-    $company = trim($_POST['company']);
-    $address = trim($_POST['address']);
-
-    $stmt = $conn->prepare("
-        INSERT INTO contractors
-        (name, phone, company, address, created_by)
-        VALUES (?, ?, ?, ?, ?)
-    ");
-    $stmt->bind_param("ssssi", $name, $phone, $company, $address, $user_id);
-
-    if ($stmt->execute()) {
-        $msg = "New contractor added. You can now assign them.";
+    if (!isValidCsrfToken('add_contractor_form', $_POST['_csrf_token'] ?? '')) {
+        $msg = "Your session expired. Please try adding the contractor again.";
     } else {
-        $msg = "Error adding contractor.";
+        $name    = trim($_POST['name']);
+        $phone   = trim($_POST['phone']);
+        $company = trim($_POST['company']);
+        $address = trim($_POST['address']);
+
+        $stmt = $conn->prepare("
+            INSERT INTO contractors
+            (name, phone, company, address, created_by)
+            VALUES (?, ?, ?, ?, ?)
+        ");
+        $stmt->bind_param("ssssi", $name, $phone, $company, $address, $user_id);
+
+        if ($stmt->execute()) {
+            $msg = "New contractor added. You can now assign them.";
+        } else {
+            $msg = "Error adding contractor.";
+        }
     }
 }
 ?>
@@ -147,9 +153,10 @@ if (isset($_POST['add_new_contractor'])) {
 
 <h3>Assign Contractor to Project</h3>
 
-<?php if ($msg != "") echo "<div class='msg'>$msg</div>"; ?>
+<?php if ($msg != "") echo "<div class='msg'>" . htmlspecialchars($msg) . "</div>"; ?>
 
 <form method="POST">
+    <?= csrfInput('assign_contractor_form') ?>
 
     Contractor
     <select name="contractor_id" required>
@@ -191,6 +198,7 @@ if (isset($_POST['add_new_contractor'])) {
 <h3>Add New Contractor</h3>
 
 <form method="POST">
+    <?= csrfInput('add_contractor_form') ?>
 
     Name
     <input type="text" name="name" required>

@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
 require "../config/db.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
@@ -10,23 +11,34 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
 $msg = "";
 
 if (isset($_POST['save_user'])) {
-    $username = trim($_POST['username']);
-    $email = trim($_POST['email']);
-    $location = trim($_POST['location']);
-    $role = $_POST['role'];
-    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
-
-    $stmt = $conn->prepare("
-        INSERT INTO users (username, email, password, location, role)
-        VALUES (?, ?, ?, ?, ?)
-    ");
-    $stmt->bind_param("sssss", $username, $email, $password, $location, $role);
-
-    if ($stmt->execute()) {
-        header("Location: manage_users.php");
-        exit();
+    if (!isValidCsrfToken('add_user_form', $_POST['_csrf_token'] ?? '')) {
+        $msg = "Your session expired. Please try creating the user again.";
     } else {
-        $msg = "Error creating user.";
+        $username = trim($_POST['username']);
+        $email = trim($_POST['email']);
+        $location = trim($_POST['location']);
+        $role = $_POST['role'];
+        $rawPassword = $_POST['password'] ?? '';
+
+        if ($username === '' || $email === '' || $location === '' || strlen($rawPassword) < 8) {
+            $msg = "Provide all required fields and use a password with at least 8 characters.";
+        } else {
+            $password = password_hash($rawPassword, PASSWORD_DEFAULT);
+
+            $stmt = $conn->prepare("
+                INSERT INTO users (username, email, password, location, role)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->bind_param("sssss", $username, $email, $password, $location, $role);
+
+            if ($stmt->execute()) {
+                $_SESSION['success_message'] = "User created successfully.";
+                header("Location: manage_users.php");
+                exit();
+            } else {
+                $msg = "Error creating user.";
+            }
+        }
     }
 }
 ?>
@@ -47,9 +59,10 @@ if (isset($_POST['save_user'])) {
 <div class="form-card">
 <h3>Add New User</h3>
 
-<?php if ($msg) echo "<div class='msg'>$msg</div>"; ?>
+<?php if ($msg) echo "<div class='msg'>" . htmlspecialchars($msg) . "</div>"; ?>
 
 <form method="POST">
+    <?= csrfInput('add_user_form') ?>
     Username
     <input type="text" name="username" required>
 

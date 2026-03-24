@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 // Ensure the shared project workflow is only used by project lead roles.
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
@@ -36,61 +36,65 @@ $projects = $projects_stmt->get_result();
 
 // Handle form submission
 if(isset($_POST['add_stage'])){
-    $project_id = intval($_POST['project_id']);
-    $selected_project_id = $project_id;
-    $stage_name = trim($_POST['stage_name']);
-    $planned_start = $_POST['planned_start'];
-    $planned_end = $_POST['planned_end'];
-    $allocated_budget = (float) ($_POST['allocated_budget'] ?? 0);
-
-    if (empty($project_id) || empty($stage_name) || empty($planned_start) || empty($planned_end) || $allocated_budget <= 0) {
-        $msg = "Please fill in all fields correctly.";
+    if (!isValidCsrfToken('add_stage_form', $_POST['_csrf_token'] ?? '')) {
+        $msg = "Your session expired. Please submit the status item again.";
     } else {
-        $project_meta_stmt = $conn->prepare("
-            SELECT title, status, estimated_budget, contractor_fee
-            FROM projects
-            WHERE id=? AND created_by=?
-        ");
-        $project_meta_stmt->bind_param("ii", $project_id, $user_id);
-        $project_meta_stmt->execute();
-        $project_meta = $project_meta_stmt->get_result()->fetch_assoc();
+        $project_id = intval($_POST['project_id']);
+        $selected_project_id = $project_id;
+        $stage_name = trim($_POST['stage_name']);
+        $planned_start = $_POST['planned_start'];
+        $planned_end = $_POST['planned_end'];
+        $allocated_budget = (float) ($_POST['allocated_budget'] ?? 0);
 
-        if (!$project_meta) {
-            $msg = "The selected project was not found.";
-        } elseif (!in_array($project_meta['status'], ['approved', 'in_progress'])) {
-            $msg = "Only approved or active projects can receive status updates.";
+        if (empty($project_id) || empty($stage_name) || empty($planned_start) || empty($planned_end) || $allocated_budget <= 0) {
+            $msg = "Please fill in all fields correctly.";
         } else {
-            $budget_summary = getProjectBudgetSummary($conn, $project_id);
-            $remaining_allocatable_budget = (float) $budget_summary['remaining_allocatable_budget'];
+            $project_meta_stmt = $conn->prepare("
+                SELECT title, status, estimated_budget, contractor_fee
+                FROM projects
+                WHERE id=? AND created_by=?
+            ");
+            $project_meta_stmt->bind_param("ii", $project_id, $user_id);
+            $project_meta_stmt->execute();
+            $project_meta = $project_meta_stmt->get_result()->fetch_assoc();
 
-            if ($remaining_allocatable_budget <= 0) {
-                $msg = "This project has no remaining budget available for new status-item allocation.";
-            } elseif ($allocated_budget - $remaining_allocatable_budget > 0.01) {
-                $msg = "Allocated budget exceeds the remaining unallocated project budget of MWK " . number_format($remaining_allocatable_budget, 2) . ".";
+            if (!$project_meta) {
+                $msg = "The selected project was not found.";
+            } elseif (!in_array($project_meta['status'], ['approved', 'in_progress'])) {
+                $msg = "Only approved or active projects can receive status updates.";
             } else {
-                $remaining_after = $remaining_allocatable_budget - $allocated_budget;
+                $budget_summary = getProjectBudgetSummary($conn, $project_id);
+                $remaining_allocatable_budget = (float) $budget_summary['remaining_allocatable_budget'];
 
-                $stmt = $conn->prepare("
-                    INSERT INTO project_stages (project_id, stage_name, planned_start, planned_end, allocated_budget, status)
-                    VALUES (?, ?, ?, ?, ?, 'pending')
-                ");
-                $stmt->bind_param("isssd", $project_id, $stage_name, $planned_start, $planned_end, $allocated_budget);
-
-                if($stmt->execute()){
-                    logProjectActivity(
-                        $conn,
-                        $project_id,
-                        'status_item_added',
-                        $user_id,
-                        $_SESSION['role'] ?? 'field_officer',
-                        null,
-                        'pending',
-                        "Status item '{$stage_name}' added with planned dates {$planned_start} to {$planned_end} and allocation of MWK " . number_format($allocated_budget, 2) . "."
-                    );
-
-                    $msg = "Status item added for " . formatProjectCode($project_id) . ". Allocated Budget: MWK " . number_format($allocated_budget,2) . ". Remaining to allocate: MWK " . number_format(max($remaining_after, 0), 2) . ".";
+                if ($remaining_allocatable_budget <= 0) {
+                    $msg = "This project has no remaining budget available for new status-item allocation.";
+                } elseif ($allocated_budget - $remaining_allocatable_budget > 0.01) {
+                    $msg = "Allocated budget exceeds the remaining unallocated project budget of MWK " . number_format($remaining_allocatable_budget, 2) . ".";
                 } else {
-                    $msg = "Error adding status item. Please try again.";
+                    $remaining_after = $remaining_allocatable_budget - $allocated_budget;
+
+                    $stmt = $conn->prepare("
+                        INSERT INTO project_stages (project_id, stage_name, planned_start, planned_end, allocated_budget, status)
+                        VALUES (?, ?, ?, ?, ?, 'pending')
+                    ");
+                    $stmt->bind_param("isssd", $project_id, $stage_name, $planned_start, $planned_end, $allocated_budget);
+
+                    if($stmt->execute()){
+                        logProjectActivity(
+                            $conn,
+                            $project_id,
+                            'status_item_added',
+                            $user_id,
+                            $_SESSION['role'] ?? 'field_officer',
+                            null,
+                            'pending',
+                            "Status item '{$stage_name}' added with planned dates {$planned_start} to {$planned_end} and allocation of MWK " . number_format($allocated_budget, 2) . "."
+                        );
+
+                        $msg = "Status item added for " . formatProjectCode($project_id) . ". Allocated Budget: MWK " . number_format($allocated_budget,2) . ". Remaining to allocate: MWK " . number_format(max($remaining_after, 0), 2) . ".";
+                    } else {
+                        $msg = "Error adding status item. Please try again.";
+                    }
                 }
             }
         }
@@ -110,10 +114,11 @@ if(isset($_POST['add_stage'])){
     <div class="col-9">
         <div class="form-card">
             <h3>Project Status / Progress Tracking</h3>
-            <?php if($msg!="") echo "<div class='msg'>$msg</div>"; ?>
+            <?php if($msg!="") echo "<div class='msg'>" . htmlspecialchars($msg) . "</div>"; ?>
             <p>Select any project you created to view its details. Only approved or active projects can receive new status entries.</p>
 
             <form method="POST">
+                <?= csrfInput('add_stage_form') ?>
                 <label>Select Project</label>
                 <select name="project_id" required onchange="calculateBudget(this.value)">
                     <option value="">-- Select Project --</option>

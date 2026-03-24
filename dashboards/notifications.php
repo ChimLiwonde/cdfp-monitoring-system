@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 $role = $_SESSION['role'] ?? null;
 $userId = (int) ($_SESSION['user_id'] ?? 0);
@@ -18,27 +18,35 @@ if (!in_array($filter, ['all', 'unread'], true)) {
 }
 
 if (isset($_POST['mark_all_read'])) {
-    $stmt = $conn->prepare("
-        UPDATE user_notifications
-        SET is_read = 1
-        WHERE user_id = ? AND is_read = 0
-    ");
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $message = "All notifications marked as read.";
-}
-
-if (isset($_POST['mark_read_id'])) {
-    $notificationId = (int) ($_POST['mark_read_id'] ?? 0);
-    if ($notificationId > 0) {
+    if (!isValidCsrfToken('notifications_actions_form', $_POST['_csrf_token'] ?? '')) {
+        $message = "Your session expired. Please try again.";
+    } else {
         $stmt = $conn->prepare("
             UPDATE user_notifications
             SET is_read = 1
-            WHERE id = ? AND user_id = ?
+            WHERE user_id = ? AND is_read = 0
         ");
-        $stmt->bind_param("ii", $notificationId, $userId);
+        $stmt->bind_param("i", $userId);
         $stmt->execute();
-        $message = "Notification marked as read.";
+        $message = "All notifications marked as read.";
+    }
+}
+
+if (isset($_POST['mark_read_id'])) {
+    if (!isValidCsrfToken('notifications_actions_form', $_POST['_csrf_token'] ?? '')) {
+        $message = "Your session expired. Please try again.";
+    } else {
+        $notificationId = (int) ($_POST['mark_read_id'] ?? 0);
+        if ($notificationId > 0) {
+            $stmt = $conn->prepare("
+                UPDATE user_notifications
+                SET is_read = 1
+                WHERE id = ? AND user_id = ?
+            ");
+            $stmt->bind_param("ii", $notificationId, $userId);
+            $stmt->execute();
+            $message = "Notification marked as read.";
+        }
     }
 }
 
@@ -168,6 +176,7 @@ $menuFile = $role === 'admin' ? 'adminmenu.php' : ($role === 'public' ? 'publicm
                 <a class="filter-link <?= $filter === 'unread' ? 'active' : '' ?>" href="notifications.php?filter=unread">Unread</a>
                 <?php if ($unreadNotifications > 0): ?>
                     <form method="POST" style="margin:0;">
+                        <?= csrfInput('notifications_actions_form') ?>
                         <input type="submit" name="mark_all_read" value="Mark All Read">
                     </form>
                 <?php endif; ?>
@@ -189,10 +198,15 @@ $menuFile = $role === 'admin' ? 'adminmenu.php' : ($role === 'public' ? 'publicm
 
                         <div class="notification-actions">
                             <?php if (!empty($notification['link'])): ?>
-                                <a href="open_notification.php?id=<?= $notification['id'] ?>">Open</a>
+                                <form method="POST" action="open_notification.php" style="margin:0;">
+                                    <?= csrfInput('open_notification_form') ?>
+                                    <input type="hidden" name="id" value="<?= (int) $notification['id'] ?>">
+                                    <button type="submit">Open</button>
+                                </form>
                             <?php endif; ?>
                             <?php if ((int) $notification['is_read'] === 0): ?>
                                 <form method="POST" style="margin:0;">
+                                    <?= csrfInput('notifications_actions_form') ?>
                                     <button type="submit" name="mark_read_id" value="<?= $notification['id'] ?>">Mark Read</button>
                                 </form>
                             <?php endif; ?>

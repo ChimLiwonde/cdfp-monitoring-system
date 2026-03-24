@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
@@ -30,94 +30,98 @@ function fetchOwnedProject($conn, $projectId, $userId)
 }
 
 if (isset($_POST['record_expense'])) {
-    $project_id = (int) ($_POST['project_id'] ?? 0);
-    $stage_id = (int) ($_POST['stage_id'] ?? 0);
-    $expense_title = trim($_POST['expense_title'] ?? '');
-    $category = trim($_POST['category'] ?? '');
-    $vendor_name = trim($_POST['vendor_name'] ?? '');
-    $amount = (float) ($_POST['amount'] ?? 0);
-    $expense_date = trim($_POST['expense_date'] ?? '');
-    $notes = trim($_POST['notes'] ?? '');
-
-    $project = fetchOwnedProject($conn, $project_id, $user_id);
-
-    if (!$project) {
-        $message = "The selected project was not found.";
-    } elseif (!in_array($project['status'], ['approved', 'in_progress'], true)) {
-        $message = "Expenses can only be recorded for approved or active projects. Completed projects remain view-only.";
-    } elseif ($expense_title === '' || $category === '' || $amount <= 0 || $expense_date === '') {
-        $message = "Please complete all required expense fields.";
+    if (!isValidCsrfToken('record_expense_form', $_POST['_csrf_token'] ?? '')) {
+        $message = "Your session expired. Please try recording the expense again.";
     } else {
-        $stage_stmt = $conn->prepare("
-            SELECT id, stage_name, allocated_budget
-            FROM project_stages
-            WHERE id = ? AND project_id = ?
-        ");
-        $stage_stmt->bind_param("ii", $stage_id, $project_id);
-        $stage_stmt->execute();
-        $stage = $stage_stmt->get_result()->fetch_assoc();
+        $project_id = (int) ($_POST['project_id'] ?? 0);
+        $stage_id = (int) ($_POST['stage_id'] ?? 0);
+        $expense_title = trim($_POST['expense_title'] ?? '');
+        $category = trim($_POST['category'] ?? '');
+        $vendor_name = trim($_POST['vendor_name'] ?? '');
+        $amount = (float) ($_POST['amount'] ?? 0);
+        $expense_date = trim($_POST['expense_date'] ?? '');
+        $notes = trim($_POST['notes'] ?? '');
 
-        if (!$stage) {
-            $message = "Please select a valid status item for this expense.";
+        $project = fetchOwnedProject($conn, $project_id, $user_id);
+
+        if (!$project) {
+            $message = "The selected project was not found.";
+        } elseif (!in_array($project['status'], ['approved', 'in_progress'], true)) {
+            $message = "Expenses can only be recorded for approved or active projects. Completed projects remain view-only.";
+        } elseif ($expense_title === '' || $category === '' || $amount <= 0 || $expense_date === '') {
+            $message = "Please complete all required expense fields.";
         } else {
-            $project_budget_summary = getProjectBudgetSummary($conn, $project_id);
-            $stage_budget_summary = getStageBudgetSummary($conn, $stage_id);
-            $remaining_project_budget = (float) $project_budget_summary['remaining_budget'];
-            $remaining_stage_budget = (float) $stage_budget_summary['remaining_budget'];
+            $stage_stmt = $conn->prepare("
+                SELECT id, stage_name, allocated_budget
+                FROM project_stages
+                WHERE id = ? AND project_id = ?
+            ");
+            $stage_stmt->bind_param("ii", $stage_id, $project_id);
+            $stage_stmt->execute();
+            $stage = $stage_stmt->get_result()->fetch_assoc();
 
-            if ($remaining_project_budget <= 0) {
-                $message = "This project has no remaining budget available for new expenses.";
-            } elseif ($amount - $remaining_project_budget > 0.01) {
-                $message = "This expense exceeds the remaining project budget of MWK " . number_format($remaining_project_budget, 2) . ".";
-            } elseif ($remaining_stage_budget <= 0) {
-                $message = "The selected status item has no remaining allocated budget.";
-            } elseif ($amount - $remaining_stage_budget > 0.01) {
-                $message = "This expense exceeds the remaining budget for " . $stage_budget_summary['stage_name'] . " by going above MWK " . number_format($remaining_stage_budget, 2) . ".";
+            if (!$stage) {
+                $message = "Please select a valid status item for this expense.";
             } else {
-                $stmt = $conn->prepare("
-                    INSERT INTO project_expenses
-                    (project_id, stage_id, expense_title, category, vendor_name, amount, expense_date, notes, recorded_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ");
-                $stmt->bind_param(
-                    "iisssdssi",
-                    $project_id,
-                    $stage_id,
-                    $expense_title,
-                    $category,
-                    $vendor_name,
-                    $amount,
-                    $expense_date,
-                    $notes,
-                    $user_id
-                );
+                $project_budget_summary = getProjectBudgetSummary($conn, $project_id);
+                $stage_budget_summary = getStageBudgetSummary($conn, $stage_id);
+                $remaining_project_budget = (float) $project_budget_summary['remaining_budget'];
+                $remaining_stage_budget = (float) $stage_budget_summary['remaining_budget'];
 
-                if ($stmt->execute()) {
-                    syncStageSpentBudget($conn, $stage_id);
-                    $updated_project_budget = getProjectBudgetSummary($conn, $project_id);
-                    $updated_stage_budget = getStageBudgetSummary($conn, $stage_id);
-
-                    logProjectActivity(
-                        $conn,
+                if ($remaining_project_budget <= 0) {
+                    $message = "This project has no remaining budget available for new expenses.";
+                } elseif ($amount - $remaining_project_budget > 0.01) {
+                    $message = "This expense exceeds the remaining project budget of MWK " . number_format($remaining_project_budget, 2) . ".";
+                } elseif ($remaining_stage_budget <= 0) {
+                    $message = "The selected status item has no remaining allocated budget.";
+                } elseif ($amount - $remaining_stage_budget > 0.01) {
+                    $message = "This expense exceeds the remaining budget for " . $stage_budget_summary['stage_name'] . " by going above MWK " . number_format($remaining_stage_budget, 2) . ".";
+                } else {
+                    $stmt = $conn->prepare("
+                        INSERT INTO project_expenses
+                        (project_id, stage_id, expense_title, category, vendor_name, amount, expense_date, notes, recorded_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ");
+                    $stmt->bind_param(
+                        "iisssdssi",
                         $project_id,
-                        'expense_recorded',
-                        $user_id,
-                        $_SESSION['role'] ?? 'field_officer',
-                        null,
-                        null,
-                        $expense_title . ' recorded under ' . $stage['stage_name'] . ' for MWK ' . number_format($amount, 2) . '.'
+                        $stage_id,
+                        $expense_title,
+                        $category,
+                        $vendor_name,
+                        $amount,
+                        $expense_date,
+                        $notes,
+                        $user_id
                     );
 
-                    $_SESSION['success_message'] =
-                        "Expense recorded for " . formatProjectCode($project_id) . ". Remaining project budget: MWK " .
-                        number_format(max((float) $updated_project_budget['remaining_budget'], 0), 2) .
-                        ". Remaining status-item budget: MWK " .
-                        number_format(max((float) $updated_stage_budget['remaining_budget'], 0), 2) . ".";
-                    header("Location: project_expenses.php?project_id={$project_id}&stage_id={$stage_id}");
-                    exit();
-                }
+                    if ($stmt->execute()) {
+                        syncStageSpentBudget($conn, $stage_id);
+                        $updated_project_budget = getProjectBudgetSummary($conn, $project_id);
+                        $updated_stage_budget = getStageBudgetSummary($conn, $stage_id);
 
-                $message = "Failed to record the expense.";
+                        logProjectActivity(
+                            $conn,
+                            $project_id,
+                            'expense_recorded',
+                            $user_id,
+                            $_SESSION['role'] ?? 'field_officer',
+                            null,
+                            null,
+                            $expense_title . ' recorded under ' . $stage['stage_name'] . ' for MWK ' . number_format($amount, 2) . '.'
+                        );
+
+                        $_SESSION['success_message'] =
+                            "Expense recorded for " . formatProjectCode($project_id) . ". Remaining project budget: MWK " .
+                            number_format(max((float) $updated_project_budget['remaining_budget'], 0), 2) .
+                            ". Remaining status-item budget: MWK " .
+                            number_format(max((float) $updated_stage_budget['remaining_budget'], 0), 2) . ".";
+                        header("Location: project_expenses.php?project_id={$project_id}&stage_id={$stage_id}");
+                        exit();
+                    }
+
+                    $message = "Failed to record the expense.";
+                }
             }
         }
     }
@@ -265,6 +269,7 @@ $can_record_expense = $selected_project
                         <p>Every current status item has exhausted its allocated budget. Add a new status item allocation before recording more spending.</p>
                     <?php else: ?>
                         <form method="POST">
+                            <?= csrfInput('record_expense_form') ?>
                             <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
 
                             Status Item
