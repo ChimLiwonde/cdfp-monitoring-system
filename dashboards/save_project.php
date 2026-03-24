@@ -75,6 +75,15 @@ if (isset($_POST['save_project'])) {
         'Project created and submitted for review.'
     );
 
+    createRoleNotifications(
+        $conn,
+        'admin',
+        'project_submitted',
+        'New Project Awaiting Review',
+        formatProjectCode($project_id) . " - {$title} was submitted and is waiting for admin review.",
+        'adminprojects.php?status=pending'
+    );
+
     $_SESSION['success_message'] = "Project " . formatProjectCode($project_id) . " created successfully.";
 
     header("Location: field_officer.php");

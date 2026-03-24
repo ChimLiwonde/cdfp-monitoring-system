@@ -12,12 +12,15 @@ $user_id = $_SESSION['user_id'];
 
 /* FETCH PROJECTS */
 $stmt = $conn->prepare("
-    SELECT id, title, district,
+    SELECT p.id, p.title, p.district,
            IFNULL(NULLIF(status,''),'pending') AS project_status,
-           estimated_budget, contractor_fee, location
-    FROM projects
-    WHERE created_by = ?
-    ORDER BY created_at DESC
+           p.estimated_budget, p.contractor_fee, p.location,
+           p.review_notes, p.reviewed_at,
+           reviewer.username AS reviewed_by_name
+    FROM projects p
+    LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by
+    WHERE p.created_by = ?
+    ORDER BY p.created_at DESC
 ");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -53,6 +56,7 @@ $result = $stmt->get_result();
     <th>Project</th>
     <th>District</th>
     <th>Status</th>
+    <th>Review</th>
     <th>Total Cost (MWK)</th>
     <th>Action</th>
 </tr>
@@ -96,16 +100,29 @@ while ($row = $result->fetch_assoc()) {
     <td><?= htmlspecialchars($row['title']) ?></td>
     <td><?= htmlspecialchars($row['district']) ?></td>
     <td class="<?= $statusClass ?>"><?= ucfirst(str_replace('_',' ',$final_status)) ?></td>
+    <td>
+        <?php if (!empty($row['review_notes']) || !empty($row['reviewed_at'])): ?>
+            <?php if (!empty($row['reviewed_at'])): ?>
+                <small><?= date('d M Y', strtotime($row['reviewed_at'])) ?></small><br>
+            <?php endif; ?>
+            <?php if (!empty($row['reviewed_by_name'])): ?>
+                <small>By <?= htmlspecialchars($row['reviewed_by_name']) ?></small><br>
+            <?php endif; ?>
+            <?= htmlspecialchars($row['review_notes'] ?: 'Reviewed without note') ?>
+        <?php else: ?>
+            <span style="color:gray;">Awaiting review</span>
+        <?php endif; ?>
+    </td>
     <td><?= number_format($display_cost,2) ?></td>
     <td>
         <?php
         if ($final_status === 'pending') {
-            echo "<a href='edit_project.php?id=$project_id'>Edit</a>";
+            echo "<a href='edit_project.php?id=$project_id'>Edit</a> | <a href='view_project_details.php?id=$project_id'>View Details</a>";
         }
         elseif (in_array($final_status,['approved','in_progress'])) {
-            echo "<a href='view_stages.php?project_id=$project_id'>Manage Status</a>";
+            echo "<a href='view_stages.php?project_id=$project_id'>Manage Status</a> | <a href='view_project_details.php?id=$project_id'>View Details</a>";
         }
-        elseif ($final_status === 'completed') {
+        elseif (in_array($final_status, ['completed', 'denied'], true)) {
             echo "<a href='view_project_details.php?id=$project_id'>View Details</a>";
         }
         else {

@@ -34,6 +34,21 @@ if (!function_exists('formatRoleLabel')) {
     }
 }
 
+if (!function_exists('formatNotificationTypeLabel')) {
+    function formatNotificationTypeLabel($type)
+    {
+        $labels = [
+            'project_submitted' => 'Project Submitted',
+            'project_reviewed' => 'Project Reviewed',
+            'community_request_submitted' => 'Community Request Submitted',
+            'community_request_reviewed' => 'Community Request Reviewed',
+            'comment_replied' => 'Comment Replied',
+        ];
+
+        return $labels[$type] ?? ucwords(str_replace('_', ' ', (string) $type));
+    }
+}
+
 if (!function_exists('panelTitleForRole')) {
     function panelTitleForRole($role)
     {
@@ -130,6 +145,105 @@ if (!function_exists('logProjectActivity')) {
         );
 
         return $stmt->execute();
+    }
+}
+
+if (!function_exists('createUserNotification')) {
+    function createUserNotification($conn, $userId, $type, $title, $message, $link = null)
+    {
+        $userId = (int) $userId;
+        if ($userId <= 0) {
+            return false;
+        }
+
+        try {
+            $stmt = $conn->prepare("
+                INSERT INTO user_notifications (user_id, notification_type, title, message, link)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+        } catch (Throwable $e) {
+            return false;
+        }
+
+        if (!$stmt) {
+            return false;
+        }
+
+        $stmt->bind_param("issss", $userId, $type, $title, $message, $link);
+        try {
+            return $stmt->execute();
+        } catch (Throwable $e) {
+            return false;
+        }
+    }
+}
+
+if (!function_exists('createRoleNotifications')) {
+    function createRoleNotifications($conn, $role, $type, $title, $message, $link = null, $excludeUserId = null)
+    {
+        try {
+            $stmt = $conn->prepare("SELECT id FROM users WHERE role = ?");
+        } catch (Throwable $e) {
+            return 0;
+        }
+
+        if (!$stmt) {
+            return 0;
+        }
+
+        $stmt->bind_param("s", $role);
+        try {
+            $stmt->execute();
+            $result = $stmt->get_result();
+        } catch (Throwable $e) {
+            return 0;
+        }
+
+        $count = 0;
+        while ($row = $result->fetch_assoc()) {
+            $targetUserId = (int) $row['id'];
+            if ($excludeUserId !== null && $targetUserId === (int) $excludeUserId) {
+                continue;
+            }
+
+            if (createUserNotification($conn, $targetUserId, $type, $title, $message, $link)) {
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+}
+
+if (!function_exists('getUnreadNotificationCount')) {
+    function getUnreadNotificationCount($conn, $userId)
+    {
+        $userId = (int) $userId;
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        try {
+            $stmt = $conn->prepare("
+                SELECT COUNT(*) AS total
+                FROM user_notifications
+                WHERE user_id = ? AND is_read = 0
+            ");
+        } catch (Throwable $e) {
+            return 0;
+        }
+
+        if (!$stmt) {
+            return 0;
+        }
+
+        $stmt->bind_param("i", $userId);
+        try {
+            $stmt->execute();
+            return (int) ($stmt->get_result()->fetch_assoc()['total'] ?? 0);
+        } catch (Throwable $e) {
+            return 0;
+        }
     }
 }
 

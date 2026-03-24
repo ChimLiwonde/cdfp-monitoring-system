@@ -1,10 +1,8 @@
 <?php
 session_start();
 require "../config/db.php";
+require_once __DIR__ . '/../config/helpers.php';
 
-/* =====================
-   SECURITY
-===================== */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'public') {
     header("Location: ../Pages/login.php");
     exit();
@@ -13,9 +11,6 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'public') {
 $user_id = $_SESSION['user_id'];
 $message = "";
 
-/* =====================
-   GET USER DISTRICT
-===================== */
 $userStmt = $conn->prepare("SELECT location FROM users WHERE id = ?");
 $userStmt->bind_param("i", $user_id);
 $userStmt->execute();
@@ -23,33 +18,27 @@ $user = $userStmt->get_result()->fetch_assoc();
 
 $district = $user['location'] ?? 'Unknown';
 
-/* =====================
-   DISTRICT → AREAS MAP
-===================== */
 $areasByDistrict = [
     "Blantyre" => ["Ndirande", "Chilomoni", "Machinjiri", "Bangwe", "Limbe", "Kameza", "Soche", "Chichiri"],
     "Lilongwe" => ["Area 18", "Area 23", "Area 25", "Kawale", "Chinsapo"],
-    "Mzuzu"    => ["Chibanja", "Zolozolo", "Masasa"],
-    "Zomba"    => ["Likangala", "Sadzi", "Chinamwali"],
-    "Kasungu"  => ["New Lines", "Lukongwe"],
+    "Mzuzu" => ["Chibanja", "Zolozolo", "Masasa"],
+    "Zomba" => ["Likangala", "Sadzi", "Chinamwali"],
+    "Kasungu" => ["New Lines", "Lukongwe"],
     "Mangochi" => ["Monkey Bay", "Namwera"],
-    "Salima"   => ["Chipoka", "Lifuwu"],
-    "Dedza"    => ["Lobi", "Mtakataka"],
-    "Ntcheu"   => ["Tsangano"],
-    "Karonga"  => ["Wiliro Beach"],
-    "Mzimba"   => ["Euthini"],
-    "Balaka"   => ["Ulongwe"]
+    "Salima" => ["Chipoka", "Lifuwu"],
+    "Dedza" => ["Lobi", "Mtakataka"],
+    "Ntcheu" => ["Tsangano"],
+    "Karonga" => ["Wiliro Beach"],
+    "Mzimba" => ["Euthini"],
+    "Balaka" => ["Ulongwe"]
 ];
 
 $availableAreas = $areasByDistrict[$district] ?? [];
 
-/* =====================
-   SUBMIT REQUEST
-===================== */
 if (isset($_POST['submit'])) {
-    $title = $_POST['title'];
-    $desc  = $_POST['description'];
-    $area  = $_POST['area'];
+    $title = trim($_POST['title'] ?? '');
+    $desc = trim($_POST['description'] ?? '');
+    $area = trim($_POST['area'] ?? '');
 
     $stmt = $conn->prepare("
         INSERT INTO community_requests (user_id, district, area, title, description, status)
@@ -58,16 +47,24 @@ if (isset($_POST['submit'])) {
     $stmt->bind_param("issss", $user_id, $district, $area, $title, $desc);
     $stmt->execute();
 
-    $message = "✅ Request submitted successfully and awaiting review";
+    createRoleNotifications(
+        $conn,
+        'admin',
+        'community_request_submitted',
+        'New Community Request Submitted',
+        "{$title} was submitted from {$district} - {$area} and is waiting for review.",
+        'admin_community_requests.php?status=pending'
+    );
+
+    $message = "Request submitted successfully and awaiting review.";
 }
 
-/* =====================
-   FETCH USER REQUESTS
-===================== */
 $requests = $conn->prepare("
-    SELECT * FROM community_requests
-    WHERE user_id = ?
-    ORDER BY created_at DESC
+    SELECT cr.*, reviewer.username AS reviewed_by_name
+    FROM community_requests cr
+    LEFT JOIN users reviewer ON reviewer.id = cr.reviewed_by
+    WHERE cr.user_id = ?
+    ORDER BY cr.created_at DESC
 ");
 $requests->bind_param("i", $user_id);
 $requests->execute();
@@ -87,17 +84,14 @@ $requests = $requests->get_result();
     <div class="col-3"><?php include "publicmenu.php"; ?></div>
 
     <div class="col-9 public-dashboard">
-
-        <!-- SUBMIT REQUEST -->
         <div class="form-card">
-            <h3>📢 Community Needs / Requests</h3>
+            <h3>Community Needs / Requests</h3>
 
             <?php if ($message): ?>
-                <div class="msg"><?= $message ?></div>
+                <div class="msg"><?= htmlspecialchars($message) ?></div>
             <?php endif; ?>
 
             <form method="POST">
-
                 <label>Request Title</label>
                 <input type="text" name="title" required>
 
@@ -108,7 +102,7 @@ $requests = $requests->get_result();
                 <select name="area" required>
                     <option value="">-- Select Area --</option>
                     <?php foreach ($availableAreas as $a): ?>
-                        <option value="<?= $a ?>"><?= $a ?></option>
+                        <option value="<?= htmlspecialchars($a) ?>"><?= htmlspecialchars($a) ?></option>
                     <?php endforeach; ?>
                 </select>
 
@@ -120,9 +114,8 @@ $requests = $requests->get_result();
             </form>
         </div>
 
-        <!-- MY REQUESTS -->
         <div class="form-card">
-            <h3>📄 My Submitted Requests</h3>
+            <h3>My Submitted Requests</h3>
 
             <?php if ($requests->num_rows == 0): ?>
                 <p>No requests submitted yet.</p>
@@ -130,23 +123,32 @@ $requests = $requests->get_result();
 
             <?php while ($r = $requests->fetch_assoc()): ?>
                 <div class="public-comment">
-
                     <strong><?= htmlspecialchars($r['title']) ?></strong><br>
-
                     <?= nl2br(htmlspecialchars($r['description'])) ?><br><br>
 
                     <small>
-                        📍 <?= htmlspecialchars($r['district']) ?> — <?= htmlspecialchars($r['area']) ?><br>
+                        <?= htmlspecialchars($r['district']) ?> - <?= htmlspecialchars($r['area']) ?><br>
                         Status:
                         <?= $r['status'] === 'reviewed'
                             ? "<span class='status-approved'>Reviewed</span>"
                             : "<span class='status-pending'>Pending</span>" ?>
+                        <?php if ($r['status'] === 'reviewed' && !empty($r['reviewed_at'])): ?>
+                            <br>Reviewed On: <?= date("d M Y, H:i", strtotime($r['reviewed_at'])) ?>
+                            <?php if (!empty($r['reviewed_by_name'])): ?>
+                                <br>Reviewed By: <?= htmlspecialchars($r['reviewed_by_name']) ?>
+                            <?php endif; ?>
+                        <?php endif; ?>
                     </small>
 
+                    <?php if (!empty($r['review_notes'])): ?>
+                        <div class="public-reply" style="margin-top:10px;">
+                            <strong>Review Note:</strong><br>
+                            <?= nl2br(htmlspecialchars($r['review_notes'])) ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
             <?php endwhile; ?>
         </div>
-
     </div>
 </div>
 

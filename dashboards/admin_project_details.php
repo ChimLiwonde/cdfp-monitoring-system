@@ -22,15 +22,19 @@ $project_stmt = $conn->prepare("
         p.district,
         p.location,
         p.status,
+        p.review_notes,
+        p.reviewed_at,
         p.estimated_budget,
         p.contractor_fee,
         p.created_at,
         u.username AS field_officer,
         u.email AS field_officer_email,
+        reviewer.username AS reviewed_by_name,
         pm.latitude,
         pm.longitude
     FROM projects p
     JOIN users u ON u.id = p.created_by
+    LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by
     LEFT JOIN project_maps pm ON pm.project_id = p.id
     WHERE p.id = ?
 ");
@@ -304,6 +308,19 @@ foreach ($stages as $stage) {
             <p><strong>Created:</strong> <?= date("d M Y, H:i", strtotime($project['created_at'])) ?></p>
             <p><strong>Description:</strong><br><?= nl2br(htmlspecialchars($project['description'])) ?></p>
             <p><a href="project_collaboration.php?project_id=<?= $project['id'] ?>">Open Internal Collaboration Channel</a></p>
+
+            <?php if (!empty($project['reviewed_at']) || !empty($project['review_notes'])): ?>
+                <div class="form-card" style="margin:15px 0 0 0;">
+                    <h4>Admin Review</h4>
+                    <?php if (!empty($project['reviewed_at'])): ?>
+                        <p><strong>Reviewed On:</strong> <?= date("d M Y, H:i", strtotime($project['reviewed_at'])) ?></p>
+                    <?php endif; ?>
+                    <?php if (!empty($project['reviewed_by_name'])): ?>
+                        <p><strong>Reviewed By:</strong> <?= htmlspecialchars($project['reviewed_by_name']) ?></p>
+                    <?php endif; ?>
+                    <p><strong>Review Note:</strong><br><?= nl2br(htmlspecialchars($project['review_notes'] ?: 'No review note recorded.')) ?></p>
+                </div>
+            <?php endif; ?>
 
             <?php if ($project['status'] === 'pending'): ?>
                 <div class="action-row">

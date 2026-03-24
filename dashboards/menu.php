@@ -1,7 +1,16 @@
+<?php
+require_once __DIR__ . '/../config/helpers.php';
+
+$notificationCount = 0;
+if (isset($conn, $_SESSION['user_id'])) {
+    $notificationCount = getUnreadNotificationCount($conn, $_SESSION['user_id']);
+}
+?>
 <div class="form-card">
     <h3>Menu</h3>
     <ul class="menu-list">
         <li><a href="home.php">Project Panel</a></li>
+        <li><a href="notifications.php">Notifications<?= $notificationCount > 0 ? ' (' . $notificationCount . ')' : '' ?></a></li>
         <li><a href="create_project.php">Create Project</a></li>
         <li><a href="add_stage.php">Project Status</a></li>
         <li><a href="task_assignments.php">Task Assignments</a></li>

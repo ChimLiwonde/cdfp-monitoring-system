@@ -3,45 +3,22 @@ session_start();
 require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
 
-/* ================= SECURITY ================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../Pages/login.php");
     exit();
 }
 
-/* ================= VALIDATE COMMENT ID ================= */
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     die("Invalid comment ID");
 }
 
-$comment_id = (int)$_GET['id'];
+$comment_id = (int) $_GET['id'];
 
-/* ================= HANDLE FORM SUBMIT ================= */
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    if (empty($_POST['admin_reply'])) {
-        $error = "Reply cannot be empty";
-    } else {
-        $reply = trim($_POST['admin_reply']);
-
-        $stmt = $conn->prepare("
-            UPDATE project_comments
-            SET admin_reply = ?, replied_at = NOW()
-            WHERE id = ?
-        ");
-        $stmt->bind_param("si", $reply, $comment_id);
-        $stmt->execute();
-
-        header("Location: admin_project_comments.php");
-        exit();
-    }
-}
-
-/* ================= FETCH COMMENT ================= */
 $stmt = $conn->prepare("
-    SELECT 
+    SELECT
         pc.comment,
         pc.admin_reply,
+        pc.user_id,
         u.username,
         p.id AS project_id,
         p.title AS project_title
@@ -57,6 +34,34 @@ $comment = $stmt->get_result()->fetch_assoc();
 if (!$comment) {
     die("Comment not found");
 }
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (empty($_POST['admin_reply'])) {
+        $error = "Reply cannot be empty";
+    } else {
+        $reply = trim($_POST['admin_reply']);
+
+        $stmt = $conn->prepare("
+            UPDATE project_comments
+            SET admin_reply = ?, replied_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->bind_param("si", $reply, $comment_id);
+        $stmt->execute();
+
+        createUserNotification(
+            $conn,
+            (int) $comment['user_id'],
+            'comment_replied',
+            'Admin Replied to Your Project Comment',
+            "An admin replied to your comment on " . formatProjectCode($comment['project_id']) . " - " . $comment['project_title'] . ".",
+            'public_replies.php'
+        );
+
+        header("Location: admin_project_comments.php");
+        exit();
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -70,7 +75,6 @@ if (!$comment) {
 <?php include "header.php"; ?>
 
 <div class="row">
-
     <div class="col-3">
         <?php include "adminmenu.php"; ?>
     </div>
@@ -101,7 +105,7 @@ if (!$comment) {
             <hr>
 
             <?php if (!empty($error)): ?>
-                <p style="color:red;"><?= $error ?></p>
+                <p style="color:red;"><?= htmlspecialchars($error) ?></p>
             <?php endif; ?>
 
             <form method="POST">
@@ -113,9 +117,7 @@ if (!$comment) {
                 <br><br>
 
                 <input type="submit" value="Send Reply">
-                <a href="admin_project_comments.php" style="margin-left:10px;">
-                    Cancel
-                </a>
+                <a href="admin_project_comments.php" style="margin-left:10px;">Cancel</a>
             </form>
         </div>
     </div>

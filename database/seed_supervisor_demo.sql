@@ -62,6 +62,18 @@ SET @denied_project_id = (
     LIMIT 1
 );
 
+UPDATE projects
+SET review_notes = 'Approved by admin during demo setup.',
+    reviewed_by = @admin_user_id,
+    reviewed_at = NOW()
+WHERE id = @approved_project_id;
+
+UPDATE projects
+SET review_notes = 'Denied during demo setup because supporting details were incomplete.',
+    reviewed_by = @admin_user_id,
+    reviewed_at = NOW()
+WHERE id = @denied_project_id;
+
 INSERT INTO project_maps (project_id, latitude, longitude)
 VALUES
 (@pending_project_id, '-15.7900', '35.0050'),
@@ -133,6 +145,13 @@ INSERT INTO project_collaboration_messages (project_id, sender_id, sender_role, 
 VALUES
 (@approved_project_id, @field_officer_id, @field_officer_role, 'Site update: preparation is complete and drilling equipment has arrived.'),
 (@approved_project_id, @admin_user_id, 'admin', 'Received. Keep budget updates flowing through the financial report and flag any overruns early.');
+
+INSERT INTO user_notifications (user_id, notification_type, title, message, link, is_read)
+VALUES
+(@admin_user_id, 'project_submitted', 'New Project Awaiting Review', 'Ndirande School Block was submitted and is waiting for admin review.', 'adminprojects.php?status=pending', 0),
+(@admin_user_id, 'community_request_submitted', 'New Community Request Submitted', 'Request for drainage improvement was submitted from Blantyre - Soche and is waiting for review.', 'admin_community_requests.php?status=pending', 0),
+(@field_officer_id, 'project_reviewed', CONCAT('Project ', @approved_project_id, ' Approved'), 'Your project "Chilomoni Borehole" was Approved. Admin review note: Approved by admin during demo setup.', CONCAT('view_project_details.php?id=', @approved_project_id), 1),
+(@public_user_id, 'comment_replied', 'Admin Replied to Your Project Comment', 'An admin replied to your comment on the approved demo project.', 'public_replies.php', 1);
 
 INSERT INTO project_activity_log (project_id, event_type, actor_id, actor_role, old_status, new_status, notes)
 VALUES

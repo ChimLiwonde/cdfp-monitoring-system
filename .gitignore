@@ -7,6 +7,7 @@
 !/database/add_finance_and_task_tables.sql
 !/database/add_internal_collaboration.sql
 !/database/add_project_manager_role.sql
+!/database/add_notifications_and_review_notes.sql
 /uploads/*
 !/uploads/.gitkeep
 

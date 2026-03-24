@@ -18,7 +18,9 @@ Included helper scripts:
    Adds the private project collaboration channel for internal admin and project-lead communication.
 4. `add_project_manager_role.sql`
    Extends the `users.role` enum so the shared project workflow can support both field officers and project managers.
-5. `reset_demo_data.sql`
+5. `add_notifications_and_review_notes.sql`
+   Adds in-app user notifications plus admin review-note fields for projects and community requests.
+6. `reset_demo_data.sql`
    Resets projects, project status items, comments, requests, maps, contractors, and activity history back to zero while keeping users.
-6. `seed_supervisor_demo.sql`
+7. `seed_supervisor_demo.sql`
    Loads a small demo dataset for supervisor review after a clean reset.

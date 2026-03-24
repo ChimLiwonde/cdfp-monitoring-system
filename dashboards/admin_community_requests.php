@@ -24,10 +24,14 @@ SELECT
     cr.area,
     cr.district,
     cr.status,
+    cr.review_notes,
+    cr.reviewed_at,
     cr.created_at,
-    u.username
+    u.username,
+    reviewer.username AS reviewed_by_name
 FROM community_requests cr
 JOIN users u ON u.id = cr.user_id
+LEFT JOIN users reviewer ON reviewer.id = cr.reviewed_by
 ";
 
 if ($status !== 'all') {
@@ -47,6 +51,9 @@ $heading_map = [
     'pending' => 'Pending Community Requests',
     'reviewed' => 'Reviewed Community Requests'
 ];
+
+$success_message = $_SESSION['success_message'] ?? '';
+unset($_SESSION['success_message']);
 ?>
 
 <!DOCTYPE html>
@@ -68,6 +75,11 @@ $heading_map = [
     <div class="col-9">
         <div class="form-card">
             <h3><?= $heading_map[$status] ?></h3>
+
+            <?php if ($success_message): ?>
+                <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+            <?php endif; ?>
+
             <p>
                 <a href="admin_community_requests.php?status=all">All</a> |
                 <a href="admin_community_requests.php?status=pending">Pending</a> |
@@ -84,13 +96,14 @@ $heading_map = [
                         <th>District</th>
                         <th>Description</th>
                         <th>Status</th>
+                        <th>Review Note</th>
                         <th>Date</th>
                         <th>Action</th>
                     </tr>
 
                     <?php if ($result->num_rows === 0): ?>
                         <tr>
-                            <td colspan="9" style="text-align:center;color:gray;">
+                            <td colspan="10" style="text-align:center;color:gray;">
                                 No community requests found
                             </td>
                         </tr>
@@ -108,8 +121,22 @@ $heading_map = [
                             <td>
                                 <?php if ($row['status'] === 'reviewed'): ?>
                                     <span style="color:green;font-weight:bold;">Reviewed</span>
+                                    <?php if (!empty($row['reviewed_at'])): ?>
+                                        <br><small><?= date("d M Y, H:i", strtotime($row['reviewed_at'])) ?></small>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span style="color:orange;">Pending</span>
+                                <?php endif; ?>
+                            </td>
+
+                            <td>
+                                <?php if (!empty($row['review_notes'])): ?>
+                                    <?= nl2br(htmlspecialchars($row['review_notes'])) ?>
+                                    <?php if (!empty($row['reviewed_by_name'])): ?>
+                                        <br><small>By <?= htmlspecialchars($row['reviewed_by_name']) ?></small>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    <span style="color:gray;">No note</span>
                                 <?php endif; ?>
                             </td>
 
@@ -117,10 +144,7 @@ $heading_map = [
 
                             <td>
                                 <?php if ($row['status'] === 'pending'): ?>
-                                    <a href="review_community_request.php?id=<?= $row['id'] ?>"
-                                       onclick="return confirm('Mark this request as reviewed?');">
-                                        Mark Reviewed
-                                    </a>
+                                    <a href="review_community_request.php?id=<?= $row['id'] ?>">Review Request</a>
                                 <?php else: ?>
                                     <span style="color:gray;">Completed</span>
                                 <?php endif; ?>

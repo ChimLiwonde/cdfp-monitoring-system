@@ -20,9 +20,11 @@ if ($project_id <= 0) {
    FETCH PROJECT
 ========================= */
 $project = $conn->query("
-    SELECT id, title, district, location, estimated_budget, contractor_fee
-    FROM projects
-    WHERE id = $project_id AND created_by = $user_id
+    SELECT p.id, p.title, p.district, p.location, p.status, p.review_notes, p.reviewed_at,
+           p.estimated_budget, p.contractor_fee, reviewer.username AS reviewed_by_name
+    FROM projects p
+    LEFT JOIN users reviewer ON reviewer.id = p.reviewed_by
+    WHERE p.id = $project_id AND p.created_by = $user_id
 ")->fetch_assoc();
 
 if (!$project) {
@@ -103,9 +105,23 @@ $collaboration_messages = $conn->query("
     <h3><?= formatProjectCode($project['id']) ?> - <?= htmlspecialchars($project['title']) ?> Summary</h3>
 
     <p><strong>Project ID:</strong> <?= formatProjectCode($project['id']) ?></p>
+    <p><strong>Status:</strong> <?= htmlspecialchars(formatStatusLabel($project['status'])) ?></p>
     <p><strong>District:</strong> <?= htmlspecialchars($project['district']) ?></p>
     <p><strong>Location:</strong> <?= htmlspecialchars($project['location']) ?></p>
     <p><a href="project_collaboration.php?project_id=<?= $project['id'] ?>">Open Internal Collaboration Channel</a></p>
+
+    <?php if (!empty($project['reviewed_at']) || !empty($project['review_notes'])): ?>
+        <div class="form-card" style="margin:15px 0 0 0;">
+            <h4>Admin Review</h4>
+            <?php if (!empty($project['reviewed_at'])): ?>
+                <p><strong>Reviewed On:</strong> <?= date("d M Y, H:i", strtotime($project['reviewed_at'])) ?></p>
+            <?php endif; ?>
+            <?php if (!empty($project['reviewed_by_name'])): ?>
+                <p><strong>Reviewed By:</strong> <?= htmlspecialchars($project['reviewed_by_name']) ?></p>
+            <?php endif; ?>
+            <p><strong>Review Note:</strong><br><?= nl2br(htmlspecialchars($project['review_notes'] ?: 'No review note recorded.')) ?></p>
+        </div>
+    <?php endif; ?>
 
     <hr>
 
