@@ -188,6 +188,7 @@ unset($_SESSION['success_message']);
 
 $project_budget_total = (float) $project['estimated_budget'] + (float) $project['contractor_fee'];
 $remaining_budget = $project_budget_total - (float) $totals['spent'];
+$remaining_to_allocate = $project_budget_total - (float) $totals['allocated'];
 $completed_items = 0;
 $active_items = 0;
 
@@ -325,6 +326,10 @@ foreach ($stages as $stage) {
                     MWK <?= number_format($remaining_budget, 2) ?>
                 </div>
                 <div class="quick-stat">
+                    <strong>Remaining to Allocate</strong>
+                    MWK <?= number_format($remaining_to_allocate, 2) ?>
+                </div>
+                <div class="quick-stat">
                     <strong>Status Items</strong>
                     <?= count($stages) ?> total, <?= $completed_items ?> completed, <?= $active_items ?> active
                 </div>
@@ -339,8 +344,11 @@ foreach ($stages as $stage) {
             <h4>Financial Summary</h4>
             <p><strong>Estimated Budget:</strong> MWK <?= number_format((float) $project['estimated_budget'], 2) ?></p>
             <p><strong>Contractor Fee:</strong> MWK <?= number_format((float) $project['contractor_fee'], 2) ?></p>
+            <p><strong>Total Project Budget:</strong> MWK <?= number_format($project_budget_total, 2) ?></p>
             <p><strong>Total Allocated:</strong> MWK <?= number_format((float) $totals['allocated'], 2) ?></p>
+            <p><strong>Remaining to Allocate:</strong> MWK <?= number_format($remaining_to_allocate, 2) ?></p>
             <p><strong>Total Spent:</strong> MWK <?= number_format((float) $totals['spent'], 2) ?></p>
+            <p><strong>Remaining to Spend:</strong> MWK <?= number_format($remaining_budget, 2) ?></p>
 
             <hr>
 
@@ -501,11 +509,12 @@ foreach ($stages as $stage) {
                     </tr>
                 <?php endif; ?>
                 <?php foreach ($stages as $stage): ?>
+                    <?php $stage_remaining = (float) $stage['allocated_budget'] - (float) $stage['spent_budget']; ?>
                     <tr>
                         <td><?= htmlspecialchars($stage['stage_name']) ?></td>
                         <td><?= htmlspecialchars($stage['planned_start']) ?> to <?= htmlspecialchars($stage['planned_end']) ?></td>
                         <td><?= htmlspecialchars($stage['actual_start'] ?: 'N/A') ?> to <?= htmlspecialchars($stage['actual_end'] ?: 'N/A') ?></td>
-                        <td>Alloc: <?= number_format((float) $stage['allocated_budget'], 2) ?><br>Spent: <?= number_format((float) $stage['spent_budget'], 2) ?></td>
+                        <td>Alloc: <?= number_format((float) $stage['allocated_budget'], 2) ?><br>Spent: <?= number_format((float) $stage['spent_budget'], 2) ?><br>Remaining: <?= number_format($stage_remaining, 2) ?></td>
                         <td><?= htmlspecialchars(formatStatusLabel($stage['status'])) ?></td>
                         <td><?= nl2br(htmlspecialchars($stage['notes'] ?: '')) ?></td>
                     </tr>

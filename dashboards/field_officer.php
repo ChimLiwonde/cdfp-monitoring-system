@@ -115,12 +115,18 @@ $budget_watchlist = $conn->query("
         p.id,
         p.title,
         (p.estimated_budget + p.contractor_fee) AS total_budget,
+        COALESCE(stage_totals.allocated_total, 0) AS allocated_total,
         COALESCE(SUM(pe.amount), 0) AS total_spent
     FROM projects p
+    LEFT JOIN (
+        SELECT project_id, SUM(allocated_budget) AS allocated_total
+        FROM project_stages
+        GROUP BY project_id
+    ) stage_totals ON stage_totals.project_id = p.id
     LEFT JOIN project_expenses pe ON pe.project_id = p.id
     WHERE p.created_by = $user_id
       AND p.status IN ('approved', 'in_progress', 'completed')
-    GROUP BY p.id, p.title, p.estimated_budget, p.contractor_fee
+    GROUP BY p.id, p.title, p.estimated_budget, p.contractor_fee, stage_totals.allocated_total
     ORDER BY p.created_at DESC
 ");
 
@@ -294,7 +300,7 @@ foreach ($cards as $t => $v):
 <tr>
 <th>Project ID</th>
 <th>Project</th>
-<th>Spent vs Budget</th>
+<th>Planning vs Spending</th>
 <th>Status</th>
 </tr>
 <?php if ($budget_watchlist->num_rows === 0): ?>
@@ -305,12 +311,15 @@ foreach ($cards as $t => $v):
 <?php while ($budget_row = $budget_watchlist->fetch_assoc()): ?>
 <?php
 $remaining_budget = (float) $budget_row['total_budget'] - (float) $budget_row['total_spent'];
+$remaining_to_allocate = (float) $budget_row['total_budget'] - (float) $budget_row['allocated_total'];
 $budget_state = $remaining_budget < 0 ? 'Over budget' : 'Within budget';
 ?>
 <tr>
 <td><?= formatProjectCode($budget_row['id']) ?></td>
 <td><?= htmlspecialchars($budget_row['title']) ?></td>
 <td>
+Allocated: MWK <?= number_format((float) $budget_row['allocated_total'], 2) ?><br>
+Unallocated: MWK <?= number_format($remaining_to_allocate, 2) ?><br>
 Spent: MWK <?= number_format((float) $budget_row['total_spent'], 2) ?><br>
 Budget: MWK <?= number_format((float) $budget_row['total_budget'], 2) ?>
 </td>

@@ -17,6 +17,7 @@ $project_stmt->bind_param("ii", $project_id, $user_id);
 $project_stmt->execute();
 $project = $project_stmt->get_result()->fetch_assoc();
 if(!$project){ header("Location: field_officer.php"); exit(); }
+$project_budget_summary = getProjectBudgetSummary($conn, $project_id);
 
 // Fetch all stages for this project, including assignment summary
 $stages_stmt = $conn->prepare("
@@ -58,6 +59,15 @@ unset($_SESSION['success_message']);
                 <div class="msg"><?= htmlspecialchars($success_message) ?></div>
             <?php endif; ?>
 
+            <div class="form-card" style="margin:0 0 18px 0;">
+                <h4>Budget Control Summary</h4>
+                <p><strong>Total Project Budget:</strong> MWK <?= number_format((float) $project_budget_summary['total_budget'], 2) ?></p>
+                <p><strong>Allocated to Status Items:</strong> MWK <?= number_format((float) $project_budget_summary['allocated_total'], 2) ?></p>
+                <p><strong>Remaining to Allocate:</strong> MWK <?= number_format((float) $project_budget_summary['remaining_allocatable_budget'], 2) ?></p>
+                <p><strong>Total Recorded Expenses:</strong> MWK <?= number_format((float) $project_budget_summary['spent_total'], 2) ?></p>
+                <p><strong>Remaining to Spend:</strong> MWK <?= number_format((float) $project_budget_summary['remaining_budget'], 2) ?></p>
+            </div>
+
             <table class="dashboard-table">
                 <tr>
                     <th>Status Item</th>
@@ -81,6 +91,7 @@ unset($_SESSION['success_message']);
                 <?php while($row = $stages->fetch_assoc()): 
                     $overdue = ($row['actual_end'] && $row['actual_end'] > $row['planned_end']) ? 'Yes' : 'No';
                     $overbudget = ($row['spent_budget'] > $row['allocated_budget']) ? 'Yes' : 'No';
+                    $remaining_stage_budget = (float) $row['allocated_budget'] - (float) $row['spent_budget'];
                 ?>
                 <tr>
                     <td><?= htmlspecialchars($row['stage_name']) ?></td>
@@ -91,7 +102,8 @@ unset($_SESSION['success_message']);
                     <td><?= htmlspecialchars($row['actual_end'] ?? '-') ?></td>
                     <td>
                         Allocated: <?= number_format((float) $row['allocated_budget'], 2) ?><br>
-                        Spent: <?= number_format((float) $row['spent_budget'], 2) ?>
+                        Spent: <?= number_format((float) $row['spent_budget'], 2) ?><br>
+                        Remaining: <?= number_format($remaining_stage_budget, 2) ?>
                     </td>
                     <td><?= htmlspecialchars(formatStatusLabel($row['status'])) ?></td>
                     <td><?= $overdue=='Yes' || $overbudget=='Yes' ? "Overdue: $overdue, OverBudget: $overbudget" : "No" ?></td>

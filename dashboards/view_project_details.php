@@ -54,6 +54,9 @@ $totals = $conn->query("
 $allocated = $totals['allocated'];
 $spent     = $totals['spent'];
 $balance   = $allocated - $spent;
+$project_total_budget = (float) $project['estimated_budget'] + (float) $project['contractor_fee'];
+$remaining_to_allocate = $project_total_budget - (float) $allocated;
+$remaining_to_spend = $project_total_budget - (float) $spent;
 
 $expenses = $conn->query("
     SELECT expense_title, category, amount, expense_date, vendor_name, notes
@@ -128,9 +131,12 @@ $collaboration_messages = $conn->query("
     <h4>Financial Summary</h4>
     <p><strong>Estimated Budget:</strong> MWK <?= number_format($project['estimated_budget'],2) ?></p>
     <p><strong>Contractor Fee:</strong> MWK <?= number_format($project['contractor_fee'],2) ?></p>
+    <p><strong>Total Project Budget:</strong> MWK <?= number_format($project_total_budget,2) ?></p>
 
     <p><strong>Total Allocated (Status Items):</strong> MWK <?= number_format($allocated,2) ?></p>
+    <p><strong>Remaining to Allocate:</strong> MWK <?= number_format($remaining_to_allocate,2) ?></p>
     <p><strong>Total Spent:</strong> MWK <?= number_format($spent,2) ?></p>
+    <p><strong>Remaining to Spend:</strong> MWK <?= number_format($remaining_to_spend,2) ?></p>
 
     <?php if ($spent > $allocated): ?>
         <p style="color:red;"><strong>Overspent by:</strong> MWK <?= number_format(abs($balance),2) ?></p>
@@ -223,6 +229,7 @@ $collaboration_messages = $conn->query("
             <th>Status Item</th>
             <th>Allocated</th>
             <th>Spent</th>
+            <th>Remaining</th>
             <th>Status</th>
         </tr>
 
@@ -234,11 +241,13 @@ $collaboration_messages = $conn->query("
         ");
 
         while ($s = $stages->fetch_assoc()):
+            $stage_remaining = (float) $s['allocated_budget'] - (float) $s['spent_budget'];
         ?>
         <tr>
             <td><?= htmlspecialchars($s['stage_name']) ?></td>
             <td><?= number_format($s['allocated_budget'],2) ?></td>
             <td><?= number_format($s['spent_budget'],2) ?></td>
+            <td><?= number_format($stage_remaining,2) ?></td>
             <td><?= htmlspecialchars(formatStatusLabel($s['status'])) ?></td>
         </tr>
         <?php endwhile; ?>

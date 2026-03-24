@@ -43,8 +43,8 @@ if (isset($_POST['record_expense'])) {
 
     if (!$project) {
         $message = "The selected project was not found.";
-    } elseif (!in_array($project['status'], ['approved', 'in_progress', 'completed'], true)) {
-        $message = "Expenses can only be recorded for approved, active, or completed projects.";
+    } elseif (!in_array($project['status'], ['approved', 'in_progress'], true)) {
+        $message = "Expenses can only be recorded for approved or active projects. Completed projects remain view-only.";
     } elseif ($expense_title === '' || $category === '' || $amount <= 0 || $expense_date === '') {
         $message = "Please complete all required expense fields.";
     } else {
@@ -60,48 +60,65 @@ if (isset($_POST['record_expense'])) {
         if (!$stage) {
             $message = "Please select a valid status item for this expense.";
         } else {
-            $stmt = $conn->prepare("
-                INSERT INTO project_expenses
-                (project_id, stage_id, expense_title, category, vendor_name, amount, expense_date, notes, recorded_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->bind_param(
-                "iisssdssi",
-                $project_id,
-                $stage_id,
-                $expense_title,
-                $category,
-                $vendor_name,
-                $amount,
-                $expense_date,
-                $notes,
-                $user_id
-            );
+            $project_budget_summary = getProjectBudgetSummary($conn, $project_id);
+            $stage_budget_summary = getStageBudgetSummary($conn, $stage_id);
+            $remaining_project_budget = (float) $project_budget_summary['remaining_budget'];
+            $remaining_stage_budget = (float) $stage_budget_summary['remaining_budget'];
 
-            if ($stmt->execute()) {
-                $stage_spent = syncStageSpentBudget($conn, $stage_id);
-
-                logProjectActivity(
-                    $conn,
+            if ($remaining_project_budget <= 0) {
+                $message = "This project has no remaining budget available for new expenses.";
+            } elseif ($amount - $remaining_project_budget > 0.01) {
+                $message = "This expense exceeds the remaining project budget of MWK " . number_format($remaining_project_budget, 2) . ".";
+            } elseif ($remaining_stage_budget <= 0) {
+                $message = "The selected status item has no remaining allocated budget.";
+            } elseif ($amount - $remaining_stage_budget > 0.01) {
+                $message = "This expense exceeds the remaining budget for " . $stage_budget_summary['stage_name'] . " by going above MWK " . number_format($remaining_stage_budget, 2) . ".";
+            } else {
+                $stmt = $conn->prepare("
+                    INSERT INTO project_expenses
+                    (project_id, stage_id, expense_title, category, vendor_name, amount, expense_date, notes, recorded_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->bind_param(
+                    "iisssdssi",
                     $project_id,
-                    'expense_recorded',
-                    $user_id,
-                    $_SESSION['role'] ?? 'field_officer',
-                    null,
-                    null,
-                    $expense_title . ' recorded under ' . $stage['stage_name'] . ' for MWK ' . number_format($amount, 2) . '.'
+                    $stage_id,
+                    $expense_title,
+                    $category,
+                    $vendor_name,
+                    $amount,
+                    $expense_date,
+                    $notes,
+                    $user_id
                 );
 
-                $warning = $stage_spent > (float) $stage['allocated_budget']
-                    ? " Warning: that status item is now over budget."
-                    : '';
+                if ($stmt->execute()) {
+                    syncStageSpentBudget($conn, $stage_id);
+                    $updated_project_budget = getProjectBudgetSummary($conn, $project_id);
+                    $updated_stage_budget = getStageBudgetSummary($conn, $stage_id);
 
-                $_SESSION['success_message'] = "Expense recorded for " . formatProjectCode($project_id) . "." . $warning;
-                header("Location: project_expenses.php?project_id={$project_id}&stage_id={$stage_id}");
-                exit();
+                    logProjectActivity(
+                        $conn,
+                        $project_id,
+                        'expense_recorded',
+                        $user_id,
+                        $_SESSION['role'] ?? 'field_officer',
+                        null,
+                        null,
+                        $expense_title . ' recorded under ' . $stage['stage_name'] . ' for MWK ' . number_format($amount, 2) . '.'
+                    );
+
+                    $_SESSION['success_message'] =
+                        "Expense recorded for " . formatProjectCode($project_id) . ". Remaining project budget: MWK " .
+                        number_format(max((float) $updated_project_budget['remaining_budget'], 0), 2) .
+                        ". Remaining status-item budget: MWK " .
+                        number_format(max((float) $updated_stage_budget['remaining_budget'], 0), 2) . ".";
+                    header("Location: project_expenses.php?project_id={$project_id}&stage_id={$stage_id}");
+                    exit();
+                }
+
+                $message = "Failed to record the expense.";
             }
-
-            $message = "Failed to record the expense.";
         }
     }
 }
@@ -119,33 +136,31 @@ $projects = $projects_stmt->get_result();
 $selected_project = fetchOwnedProject($conn, $selected_project_id, $user_id);
 $stage_options = [];
 $expenses = [];
-$totals = [
-    'allocated' => 0,
-    'spent' => 0,
-];
+$project_budget_summary = getProjectBudgetSummary($conn, $selected_project_id);
+$project_stage_budget_rows = [];
 
 if ($selected_project) {
     $stage_stmt = $conn->prepare("
-        SELECT id, stage_name, allocated_budget, spent_budget, status
-        FROM project_stages
-        WHERE project_id = ?
-        ORDER BY planned_start ASC, id ASC
+        SELECT
+            ps.id,
+            ps.stage_name,
+            ps.allocated_budget,
+            ps.status,
+            COALESCE(SUM(pe.amount), 0) AS spent_total
+        FROM project_stages ps
+        LEFT JOIN project_expenses pe ON pe.stage_id = ps.id
+        WHERE ps.project_id = ?
+        GROUP BY ps.id, ps.stage_name, ps.allocated_budget, ps.status
+        ORDER BY ps.planned_start ASC, ps.id ASC
     ");
     $stage_stmt->bind_param("i", $selected_project_id);
     $stage_stmt->execute();
     $stage_result = $stage_stmt->get_result();
     while ($row = $stage_result->fetch_assoc()) {
+        $row['remaining_budget'] = (float) $row['allocated_budget'] - (float) $row['spent_total'];
         $stage_options[] = $row;
+        $project_stage_budget_rows[] = $row;
     }
-
-    $totals_stmt = $conn->prepare("
-        SELECT
-            (SELECT COALESCE(SUM(allocated_budget), 0) FROM project_stages WHERE project_id = ?) AS allocated,
-            (SELECT COALESCE(SUM(amount), 0) FROM project_expenses WHERE project_id = ?) AS spent
-    ");
-    $totals_stmt->bind_param("ii", $selected_project_id, $selected_project_id);
-    $totals_stmt->execute();
-    $totals = $totals_stmt->get_result()->fetch_assoc();
 
     $expense_stmt = $conn->prepare("
         SELECT
@@ -176,9 +191,16 @@ $success_message = $_SESSION['success_message'] ?? '';
 unset($_SESSION['success_message']);
 
 $project_total_budget = $selected_project
-    ? (float) $selected_project['estimated_budget'] + (float) $selected_project['contractor_fee']
+    ? (float) $project_budget_summary['total_budget']
     : 0;
-$remaining_budget = $project_total_budget - (float) $totals['spent'];
+$remaining_budget = $selected_project ? (float) $project_budget_summary['remaining_budget'] : 0;
+$remaining_allocatable_budget = $selected_project ? (float) $project_budget_summary['remaining_allocatable_budget'] : 0;
+$can_record_expense = $selected_project
+    && in_array($selected_project['status'], ['approved', 'in_progress'], true)
+    && $remaining_budget > 0.01
+    && count(array_filter($stage_options, function ($stage) {
+        return (float) $stage['remaining_budget'] > 0.01;
+    })) > 0;
 ?>
 <!DOCTYPE html>
 <html>
@@ -221,8 +243,9 @@ $remaining_budget = $project_total_budget - (float) $totals['spent'];
                     <h4><?= formatProjectCode($selected_project['id']) ?> - <?= htmlspecialchars($selected_project['title']) ?></h4>
                     <p><strong>Status:</strong> <?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?></p>
                     <p><strong>Total Budget:</strong> MWK <?= number_format($project_total_budget, 2) ?></p>
-                    <p><strong>Allocated to Status Items:</strong> MWK <?= number_format((float) $totals['allocated'], 2) ?></p>
-                    <p><strong>Total Recorded Expenses:</strong> MWK <?= number_format((float) $totals['spent'], 2) ?></p>
+                    <p><strong>Allocated to Status Items:</strong> MWK <?= number_format((float) $project_budget_summary['allocated_total'], 2) ?></p>
+                    <p><strong>Remaining to Allocate:</strong> MWK <?= number_format($remaining_allocatable_budget, 2) ?></p>
+                    <p><strong>Total Recorded Expenses:</strong> MWK <?= number_format((float) $project_budget_summary['spent_total'], 2) ?></p>
                     <?php if ($remaining_budget < 0): ?>
                         <p style="color:#d32f2f;"><strong>Budget Overrun:</strong> MWK <?= number_format(abs($remaining_budget), 2) ?></p>
                     <?php else: ?>
@@ -234,6 +257,12 @@ $remaining_budget = $project_total_budget - (float) $totals['spent'];
                     <h4>Record New Expense</h4>
                     <?php if (count($stage_options) === 0): ?>
                         <p>Add project status items before recording expenses.</p>
+                    <?php elseif (!in_array($selected_project['status'], ['approved', 'in_progress'], true)): ?>
+                        <p>This project is <?= htmlspecialchars(formatStatusLabel($selected_project['status'])) ?>, so expenditure entries are locked. You can still review the ledger below.</p>
+                    <?php elseif ($remaining_budget <= 0.01): ?>
+                        <p>This project has no remaining budget available for new expenses.</p>
+                    <?php elseif (!$can_record_expense): ?>
+                        <p>Every current status item has exhausted its allocated budget. Add a new status item allocation before recording more spending.</p>
                     <?php else: ?>
                         <form method="POST">
                             <input type="hidden" name="project_id" value="<?= $selected_project['id'] ?>">
@@ -242,8 +271,13 @@ $remaining_budget = $project_total_budget - (float) $totals['spent'];
                             <select name="stage_id" required>
                                 <option value="">-- Select Status Item --</option>
                                 <?php foreach ($stage_options as $stage): ?>
-                                    <option value="<?= $stage['id'] ?>" <?= $stage['id'] === $selected_stage_id ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($stage['stage_name'] . ' | Allocated MWK ' . number_format((float) $stage['allocated_budget'], 2)) ?>
+                                    <option value="<?= $stage['id'] ?>" <?= $stage['id'] === $selected_stage_id ? 'selected' : '' ?> <?= (float) $stage['remaining_budget'] <= 0.01 ? 'disabled' : '' ?>>
+                                        <?= htmlspecialchars(
+                                            $stage['stage_name'] .
+                                            ' | Allocated MWK ' . number_format((float) $stage['allocated_budget'], 2) .
+                                            ' | Spent MWK ' . number_format((float) $stage['spent_total'], 2) .
+                                            ' | Remaining MWK ' . number_format(max((float) $stage['remaining_budget'], 0), 2)
+                                        ) ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -277,6 +311,33 @@ $remaining_budget = $project_total_budget - (float) $totals['spent'];
                             <input type="submit" name="record_expense" value="Record Expense">
                         </form>
                     <?php endif; ?>
+                </div>
+
+                <div class="form-card">
+                    <h4>Status Item Budget Control</h4>
+                    <table class="dashboard-table">
+                        <tr>
+                            <th>Status Item</th>
+                            <th>Status</th>
+                            <th>Allocated</th>
+                            <th>Spent</th>
+                            <th>Remaining</th>
+                            <th>Control State</th>
+                        </tr>
+                        <?php foreach ($project_stage_budget_rows as $stage_row): ?>
+                            <?php $stage_remaining = (float) $stage_row['remaining_budget']; ?>
+                            <tr>
+                                <td><?= htmlspecialchars($stage_row['stage_name']) ?></td>
+                                <td><?= htmlspecialchars(formatStatusLabel($stage_row['status'])) ?></td>
+                                <td>MWK <?= number_format((float) $stage_row['allocated_budget'], 2) ?></td>
+                                <td>MWK <?= number_format((float) $stage_row['spent_total'], 2) ?></td>
+                                <td style="color:<?= $stage_remaining < 0 ? '#d32f2f' : '#2e7d32' ?>;">
+                                    MWK <?= number_format($stage_remaining, 2) ?>
+                                </td>
+                                <td><?= $stage_remaining < 0 ? 'Over Budget' : ($stage_remaining <= 0.01 ? 'Budget Exhausted' : 'Within Budget') ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </table>
                 </div>
 
                 <div class="form-card">
