@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 /* ================= SECURITY ================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'public') {
@@ -10,6 +10,8 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'public') {
 }
 
 $user_id = $_SESSION['user_id'];
+$success_message = pullSessionMessage('success_message');
+$error_message = pullSessionMessage('error_message');
 
 /* ================= USER LOCATION ================= */
 $userStmt = $conn->prepare("SELECT location FROM users WHERE id = ?");
@@ -70,6 +72,18 @@ $projects = $stmt->get_result();
     <!-- CONTENT -->
     <div class="col-9 public-dashboard">
 
+        <?php if ($success_message !== ''): ?>
+            <div class="form-card">
+                <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($error_message !== ''): ?>
+            <div class="form-card">
+                <div class="msg error"><?= htmlspecialchars($error_message) ?></div>
+            </div>
+        <?php endif; ?>
+
         <?php if ($projects->num_rows == 0): ?>
             <div class="form-card">
                 No projects found in your district.
@@ -80,6 +94,9 @@ $projects = $stmt->get_result();
 
         <?php
         $can_comment = in_array($p['status'], ['pending', 'approved']);
+        $mapLat = normalizeCoordinate($p['latitude'], -90, 90);
+        $mapLng = normalizeCoordinate($p['longitude'], -180, 180);
+        $hasMap = $mapLat !== null && $mapLng !== null;
         ?>
 
         <div class="form-card public-project-card">
@@ -127,7 +144,7 @@ $projects = $stmt->get_result();
             </div>
 
             <!-- MAP -->
-            <?php if ($p['latitude'] && $p['longitude']): ?>
+            <?php if ($hasMap): ?>
                 <div id="map<?= $p['id'] ?>" class="public-map"></div>
             <?php endif; ?>
 
@@ -136,6 +153,7 @@ $projects = $stmt->get_result();
             <!-- COMMENT FORM -->
             <?php if ($can_comment): ?>
                 <form method="POST" action="submit_comment.php">
+                    <?= csrfInput('public_comment_form') ?>
                     <input type="hidden" name="project_id" value="<?= $p['id'] ?>">
                     <textarea name="comment" required placeholder="Write your comment..."></textarea>
                     <br><br>
@@ -190,7 +208,7 @@ $projects = $stmt->get_result();
                             $rstmt->execute();
                             $alreadyReacted = $rstmt->get_result()->num_rows > 0;
                         ?>
-                            <button class="emoji-btn <?= $alreadyReacted ? 'reacted' : '' ?>" 
+                            <button type="button" class="emoji-btn <?= $alreadyReacted ? 'reacted' : '' ?>" 
                                     data-comment="<?= $c['id'] ?>" data-emoji="<?= $emoji ?>">
                                 <?= $emoji ?> <span class="emoji-count"><?= $count ?></span>
                             </button>
@@ -201,16 +219,16 @@ $projects = $stmt->get_result();
 
         </div>
 
-        <?php if ($p['latitude'] && $p['longitude']): ?>
+        <?php if ($hasMap): ?>
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
         <script>
         L.map("map<?= $p['id'] ?>")
-            .setView([<?= $p['latitude'] ?>, <?= $p['longitude'] ?>], 14)
+            .setView([<?= json_encode((float) $mapLat) ?>, <?= json_encode((float) $mapLng) ?>], 14)
             .addLayer(
                 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png")
             )
             .addLayer(
-                L.marker([<?= $p['latitude'] ?>, <?= $p['longitude'] ?>])
+                L.marker([<?= json_encode((float) $mapLat) ?>, <?= json_encode((float) $mapLng) ?>])
             );
         </script>
         <?php endif; ?>
@@ -225,20 +243,21 @@ $projects = $stmt->get_result();
 <!-- JQUERY + AJAX FOR EMOJI REACTIONS -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
+const emojiCsrfToken = <?= json_encode(getCsrfToken('emoji_react_form')) ?>;
+
 $(document).on('click', '.emoji-btn', function(){
     let btn = $(this);
     let commentId = btn.data('comment');
     let emoji = btn.data('emoji');
 
-    $.post('emoji_react.php', {comment_id: commentId, emoji: emoji}, function(res){
-        res = JSON.parse(res);
+    $.post('emoji_react.php', {comment_id: commentId, emoji: emoji, _csrf_token: emojiCsrfToken}, function(res){
         if(res.status === 'added'){
             btn.addClass('reacted');
         } else {
             btn.removeClass('reacted');
         }
         btn.find('.emoji-count').text(res.count);
-    });
+    }, 'json');
 });
 </script>
 

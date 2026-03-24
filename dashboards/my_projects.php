@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
@@ -25,6 +25,9 @@ $stmt = $conn->prepare("
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
+
+$success_message = pullSessionMessage('success_message');
+$error_message = pullSessionMessage('error_message');
 ?>
 <!DOCTYPE html>
 <html>
@@ -49,6 +52,14 @@ $result = $stmt->get_result();
 
 <div class="form-card">
 <h3>Your Projects</h3>
+
+<?php if ($success_message !== ''): ?>
+    <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+<?php endif; ?>
+
+<?php if ($error_message !== ''): ?>
+    <div class="msg error"><?= htmlspecialchars($error_message) ?></div>
+<?php endif; ?>
 
 <table class="dashboard-table">
 <tr>

@@ -1,8 +1,8 @@
 <?php
-session_start();
+require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
 require "../config/db.php";
 require "../config/mail.php";
-require_once __DIR__ . '/../config/helpers.php';
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../Pages/login.php");
@@ -55,7 +55,9 @@ $error = '';
 $reviewNotes = trim($_POST['review_notes'] ?? '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if ($status === 'denied' && $reviewNotes === '') {
+    if (!isValidCsrfToken('project_review_form', $_POST['_csrf_token'] ?? '')) {
+        $error = "Your session expired. Please open the review form again.";
+    } elseif ($status === 'denied' && $reviewNotes === '') {
         $error = "A review note is required when denying a project.";
     } else {
         $update = $conn->prepare("
@@ -140,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST">
+                <?= csrfInput('project_review_form') ?>
                 <input type="hidden" name="id" value="<?= $project['id'] ?>">
                 <input type="hidden" name="status" value="<?= htmlspecialchars($status) ?>">
                 <input type="hidden" name="return_to" value="<?= htmlspecialchars($return_to) ?>">

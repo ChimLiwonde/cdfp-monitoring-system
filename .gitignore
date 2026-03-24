@@ -10,6 +10,9 @@
 !/database/add_notifications_and_review_notes.sql
 /uploads/*
 !/uploads/.gitkeep
+/private_uploads/*
+!/private_uploads/.gitkeep
+!/private_uploads/.htaccess
 
 # Environment-specific files
 .env

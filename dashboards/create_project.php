@@ -1,13 +1,15 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 /* SECURITY: ONLY PROJECT LEAD ROLES */
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
     exit();
 }
+
+$error_message = pullSessionMessage('error_message');
 ?>
 <!DOCTYPE html>
 <html>
@@ -37,7 +39,12 @@ if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
         <div class="form-card">
             <h3>Create Project</h3>
 
+            <?php if ($error_message !== ''): ?>
+                <div class="msg error"><?= htmlspecialchars($error_message) ?></div>
+            <?php endif; ?>
+
             <form action="save_project.php" method="POST" enctype="multipart/form-data">
+                <?= csrfInput('create_project_form') ?>
 
                 <!-- PROJECT INFO -->
                 Project Title

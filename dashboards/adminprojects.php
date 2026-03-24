@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 /* ======================= SECURITY ======================= */
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
@@ -17,7 +17,7 @@ if (!in_array($status, $allowed_statuses, true)) {
     $status = 'pending';
 }
 
-$sql = "
+$baseSql = "
 SELECT 
     p.id AS project_id,
     p.title,
@@ -41,16 +41,22 @@ LEFT JOIN contractors c
     ON c.id = cp.contractor_id
 ";
 
-if ($status !== 'all') {
-    $safe_status = $conn->real_escape_string($status);
-    $sql .= " WHERE p.status = '{$safe_status}'";
+$result = false;
+$query_error = '';
+
+if ($status === 'all') {
+    $result = $conn->query($baseSql . " ORDER BY p.created_at DESC");
+} else {
+    $stmt = $conn->prepare($baseSql . " WHERE p.status = ? ORDER BY p.created_at DESC");
+    if ($stmt) {
+        $stmt->bind_param("s", $status);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    }
 }
 
-$sql .= " ORDER BY p.created_at DESC";
-
-$result = $conn->query($sql);
 if (!$result) {
-    die("SQL ERROR: " . $conn->error);
+    $query_error = 'Projects could not be loaded right now.';
 }
 
 $heading_map = [
@@ -62,8 +68,8 @@ $heading_map = [
     'denied' => 'Denied Projects'
 ];
 
-$success_message = $_SESSION['success_message'] ?? '';
-unset($_SESSION['success_message']);
+$success_message = pullSessionMessage('success_message');
+$error_message = pullSessionMessage('error_message');
 ?>
 
 <!DOCTYPE html>
@@ -101,6 +107,14 @@ unset($_SESSION['success_message']);
                 <div class="msg"><?= htmlspecialchars($success_message) ?></div>
             <?php endif; ?>
 
+            <?php if ($error_message): ?>
+                <div class="msg error"><?= htmlspecialchars($error_message) ?></div>
+            <?php endif; ?>
+
+            <?php if ($query_error): ?>
+                <div class="msg error"><?= htmlspecialchars($query_error) ?></div>
+            <?php endif; ?>
+
             <p>
                 <a href="adminprojects.php?status=all">All</a> |
                 <a href="adminprojects.php?status=pending">Pending</a> |
@@ -129,7 +143,7 @@ unset($_SESSION['success_message']);
                         <th>Action</th>
                     </tr>
 
-                    <?php if ($result->num_rows === 0): ?>
+                    <?php if (!$result || $result->num_rows === 0): ?>
                         <tr>
                             <td colspan="10" style="text-align:center;color:gray;">
                                 No projects found for this filter
@@ -137,8 +151,10 @@ unset($_SESSION['success_message']);
                         </tr>
                     <?php endif; ?>
 
-                    <?php while ($row = $result->fetch_assoc()):
+                    <?php while ($result && ($row = $result->fetch_assoc())):
                         $total_budget = ($row['estimated_budget'] ?? 0) + ($row['contractor_fee'] ?? 0);
+                        $mapLat = normalizeCoordinate($row['latitude'], -90, 90);
+                        $mapLng = normalizeCoordinate($row['longitude'], -180, 180);
                     ?>
                     <tr>
                         <td><a href="admin_project_details.php?id=<?= $row['project_id'] ?>"><?= formatProjectCode($row['project_id']) ?></a></td>
@@ -146,12 +162,12 @@ unset($_SESSION['success_message']);
                         <td><?= htmlspecialchars($row['district']) ?></td>
                         <td><?= htmlspecialchars(formatStatusLabel($row['status'])) ?></td>
                         <td>
-                            <?php if ($row['latitude'] && $row['longitude']): ?>
+                            <?php if ($mapLat !== null && $mapLng !== null): ?>
                                 <div 
                                     id="map-<?= $row['project_id'] ?>" 
                                     class="map-box"
-                                    data-lat="<?= $row['latitude'] ?>"
-                                    data-lng="<?= $row['longitude'] ?>">
+                                    data-lat="<?= htmlspecialchars($mapLat) ?>"
+                                    data-lng="<?= htmlspecialchars($mapLng) ?>">
                                 </div>
                             <?php else: ?>
                                 <span style="color:gray;">No location</span>
@@ -173,7 +189,7 @@ unset($_SESSION['success_message']);
 
                         <td>
                             <?php if (!empty($row['document'])): ?>
-                                <a href="../uploads/<?= urlencode($row['document']) ?>" target="_blank">
+                                <a href="project_document.php?id=<?= $row['project_id'] ?>" target="_blank" rel="noopener noreferrer">
                                     View
                                 </a>
                             <?php else: ?>

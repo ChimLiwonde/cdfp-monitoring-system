@@ -1,58 +1,64 @@
 <?php
-session_start();
+require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
 require "../config/db.php";
+require "../config/mail.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../Pages/login.php");
     exit();
 }
 
-if (!isset($_GET['id'])) {
-    die("Invalid request");
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isValidCsrfToken('reset_user_password_form', $_POST['_csrf_token'] ?? '')) {
+    $_SESSION['error_message'] = 'Your session expired. Please try resetting the password again.';
+    header("Location: manage_users.php");
+    exit();
 }
 
-$user_id = (int) $_GET['id'];
+$user_id = (int) ($_POST['id'] ?? 0);
+if ($user_id <= 0) {
+    $_SESSION['error_message'] = 'Invalid user selected for password reset.';
+    header("Location: manage_users.php");
+    exit();
+}
 
-/* Generate secure temporary password */
+if ($user_id === (int) ($_SESSION['user_id'] ?? 0)) {
+    $_SESSION['error_message'] = 'Use the account settings page to change your own password.';
+    header("Location: manage_users.php");
+    exit();
+}
+
+$userStmt = $conn->prepare("SELECT username, email FROM users WHERE id = ? LIMIT 1");
+$userStmt->bind_param("i", $user_id);
+$userStmt->execute();
+$targetUser = $userStmt->get_result()->fetch_assoc();
+
+if (!$targetUser) {
+    $_SESSION['error_message'] = 'The selected user account could not be found.';
+    header("Location: manage_users.php");
+    exit();
+}
+
 $temp_password = substr(bin2hex(random_bytes(6)), 0, 10);
 $hashed = password_hash($temp_password, PASSWORD_DEFAULT);
 
-/* Update password */
-$stmt = $conn->prepare("UPDATE users SET password=? WHERE id=?");
+$stmt = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
 $stmt->bind_param("si", $hashed, $user_id);
 $stmt->execute();
-?>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Password Reset</title>
-    <link rel="stylesheet" href="../assets/css/flexible.css">
-</head>
-<body>
+$subject = "Temporary Password Reset";
+$body = "
+    <h3>Hello {$targetUser['username']},</h3>
+    <p>Your account password was reset by an administrator.</p>
+    <p><strong>Temporary Password:</strong> {$temp_password}</p>
+    <p>Please log in and change your password as soon as possible.</p>
+";
 
-<?php include "header.php"; ?>
+if (!empty($targetUser['email']) && sendEmail($targetUser['email'], $subject, $body)) {
+    $_SESSION['success_message'] = 'Password reset successfully. A temporary password was emailed to the user.';
+} else {
+    $_SESSION['password_reset_info'] = 'Password reset successfully. Temporary password: ' . $temp_password;
+}
 
-<div class="row">
-    <div class="col-3"><?php include "adminmenu.php"; ?></div>
-
-    <div class="col-9">
-        <div class="form-card">
-            <h3>Password Reset Successful</h3>
-
-            <p><strong>Temporary Password:</strong></p>
-            <div style="font-size:20px;background:#f3f3f3;padding:15px;border-radius:6px;">
-                <?= htmlspecialchars($temp_password) ?>
-            </div>
-
-            <p style="color:red;margin-top:10px;">
-                ⚠ Copy this password now. It cannot be recovered again.
-            </p>
-
-            <a href="manage_users.php" class="btn">← Back to Users</a>
-        </div>
-    </div>
-</div>
-
-</body>
-</html>
+header("Location: manage_users.php");
+exit();

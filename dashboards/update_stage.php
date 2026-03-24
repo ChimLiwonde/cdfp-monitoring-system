@@ -1,10 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
-
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+startSecureSession();
+require "../config/db.php";
 
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     header("Location: ../Pages/login.php");
@@ -37,72 +34,76 @@ if (!$stage) {
 $msg = "";
 
 if (isset($_POST['update_stage'])) {
-    $actual_start = !empty($_POST['actual_start']) ? $_POST['actual_start'] : null;
-    $actual_end   = !empty($_POST['actual_end']) ? $_POST['actual_end'] : null;
-    $status       = $_POST['status'];
-    $notes        = trim($_POST['notes']);
-    $previous_stage_status = $stage['status'];
+    if (!isValidCsrfToken('update_stage_form', $_POST['_csrf_token'] ?? '')) {
+        $msg = "Your session expired. Please submit the update again.";
+    } else {
+        $actual_start = !empty($_POST['actual_start']) ? $_POST['actual_start'] : null;
+        $actual_end   = !empty($_POST['actual_end']) ? $_POST['actual_end'] : null;
+        $status       = $_POST['status'];
+        $notes        = trim($_POST['notes']);
+        $previous_stage_status = $stage['status'];
 
-    $update = $conn->prepare("
-        UPDATE project_stages
-        SET actual_start = ?,
-            actual_end = ?,
-            status = ?,
-            notes = ?
-        WHERE id = ?
-    ");
-    $update->bind_param(
-        "ssssi",
-        $actual_start,
-        $actual_end,
-        $status,
-        $notes,
-        $stage_id
-    );
-
-    if ($update->execute()) {
-        $project_id = (int) $stage['project_id'];
-
-        $currentProjectStmt = $conn->prepare("SELECT status FROM projects WHERE id = ?");
-        $currentProjectStmt->bind_param("i", $project_id);
-        $currentProjectStmt->execute();
-        $current_project_status = $currentProjectStmt->get_result()->fetch_assoc()['status'] ?? 'approved';
-
-        logProjectActivity(
-            $conn,
-            $project_id,
-            'stage_status_changed',
-            $user_id,
-            $_SESSION['role'] ?? 'field_officer',
-            $previous_stage_status,
+        $update = $conn->prepare("
+            UPDATE project_stages
+            SET actual_start = ?,
+                actual_end = ?,
+                status = ?,
+                notes = ?
+            WHERE id = ?
+        ");
+        $update->bind_param(
+            "ssssi",
+            $actual_start,
+            $actual_end,
             $status,
-            "Status item '{$stage['stage_name']}' updated."
+            $notes,
+            $stage_id
         );
 
-        $new_project_status = determineProjectStatusFromStages($conn, $project_id, $current_project_status);
-        if ($new_project_status !== $current_project_status) {
-            $projectUpdate = $conn->prepare("UPDATE projects SET status = ? WHERE id = ?");
-            $projectUpdate->bind_param("si", $new_project_status, $project_id);
-            $projectUpdate->execute();
+        if ($update->execute()) {
+            $project_id = (int) $stage['project_id'];
+
+            $currentProjectStmt = $conn->prepare("SELECT status FROM projects WHERE id = ?");
+            $currentProjectStmt->bind_param("i", $project_id);
+            $currentProjectStmt->execute();
+            $current_project_status = $currentProjectStmt->get_result()->fetch_assoc()['status'] ?? 'approved';
 
             logProjectActivity(
                 $conn,
                 $project_id,
-                'project_status_changed',
+                'stage_status_changed',
                 $user_id,
                 $_SESSION['role'] ?? 'field_officer',
-                $current_project_status,
-                $new_project_status,
-                "Project lifecycle updated after status item review."
+                $previous_stage_status,
+                $status,
+                "Status item '{$stage['stage_name']}' updated."
             );
+
+            $new_project_status = determineProjectStatusFromStages($conn, $project_id, $current_project_status);
+            if ($new_project_status !== $current_project_status) {
+                $projectUpdate = $conn->prepare("UPDATE projects SET status = ? WHERE id = ?");
+                $projectUpdate->bind_param("si", $new_project_status, $project_id);
+                $projectUpdate->execute();
+
+                logProjectActivity(
+                    $conn,
+                    $project_id,
+                    'project_status_changed',
+                    $user_id,
+                    $_SESSION['role'] ?? 'field_officer',
+                    $current_project_status,
+                    $new_project_status,
+                    "Project lifecycle updated after status item review."
+                );
+            }
+
+            $_SESSION['success_message'] = "Status item updated for " . formatProjectCode($project_id) . ".";
+            header("Location: view_stages.php?project_id=$project_id");
+            exit();
         }
 
-        $_SESSION['success_message'] = "Status item updated for " . formatProjectCode($project_id) . ".";
-        header("Location: view_stages.php?project_id=$project_id");
-        exit();
+        $msg = "Failed to update status item.";
     }
-
-    $msg = "Failed to update status item.";
 }
 ?>
 <!DOCTYPE html>
@@ -131,6 +132,7 @@ if (isset($_POST['update_stage'])) {
             <?php endif; ?>
 
             <form method="POST">
+                <?= csrfInput('update_stage_form') ?>
                 Actual Start Date
                 <input type="date" name="actual_start" value="<?= htmlspecialchars($stage['actual_start'] ?? '') ?>">
 

@@ -1,5 +1,281 @@
 <?php
 
+if (!function_exists('startSecureSession')) {
+    function startSecureSession()
+    {
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            return;
+        }
+
+        if (!headers_sent()) {
+            $isSecure = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'domain' => '',
+                'secure' => $isSecure,
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+        }
+
+        session_start();
+    }
+}
+
+if (!function_exists('pullSessionMessage')) {
+    function pullSessionMessage($key)
+    {
+        if (!isset($_SESSION[$key])) {
+            return '';
+        }
+
+        $message = $_SESSION[$key];
+        unset($_SESSION[$key]);
+
+        return (string) $message;
+    }
+}
+
+if (!function_exists('getCsrfToken')) {
+    function getCsrfToken($scope = 'default')
+    {
+        if (!isset($_SESSION['_csrf_tokens']) || !is_array($_SESSION['_csrf_tokens'])) {
+            $_SESSION['_csrf_tokens'] = [];
+        }
+
+        if (empty($_SESSION['_csrf_tokens'][$scope])) {
+            $_SESSION['_csrf_tokens'][$scope] = bin2hex(random_bytes(32));
+        }
+
+        return $_SESSION['_csrf_tokens'][$scope];
+    }
+}
+
+if (!function_exists('csrfInput')) {
+    function csrfInput($scope = 'default')
+    {
+        return '<input type="hidden" name="_csrf_token" value="' . htmlspecialchars(getCsrfToken($scope), ENT_QUOTES, 'UTF-8') . '">';
+    }
+}
+
+if (!function_exists('isValidCsrfToken')) {
+    function isValidCsrfToken($scope, $submittedToken)
+    {
+        if (!is_string($submittedToken) || $submittedToken === '') {
+            return false;
+        }
+
+        if (empty($_SESSION['_csrf_tokens'][$scope])) {
+            return false;
+        }
+
+        return hash_equals($_SESSION['_csrf_tokens'][$scope], $submittedToken);
+    }
+}
+
+if (!function_exists('normalizeCoordinate')) {
+    function normalizeCoordinate($value, $min, $max, $precision = 6)
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (!is_numeric($value)) {
+            return null;
+        }
+
+        $value = (float) $value;
+        if ($value < $min || $value > $max) {
+            return null;
+        }
+
+        return number_format($value, $precision, '.', '');
+    }
+}
+
+if (!function_exists('hasValidCoordinatePair')) {
+    function hasValidCoordinatePair($latitude, $longitude)
+    {
+        return normalizeCoordinate($latitude, -90, 90) !== null
+            && normalizeCoordinate($longitude, -180, 180) !== null;
+    }
+}
+
+if (!function_exists('getProjectDocumentStorageDir')) {
+    function getProjectDocumentStorageDir()
+    {
+        return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'private_uploads';
+    }
+}
+
+if (!function_exists('getLegacyProjectDocumentStorageDir')) {
+    function getLegacyProjectDocumentStorageDir()
+    {
+        return dirname(__DIR__) . DIRECTORY_SEPARATOR . 'uploads';
+    }
+}
+
+if (!function_exists('storeProjectDocumentUpload')) {
+    function storeProjectDocumentUpload(array $file, &$error = null)
+    {
+        $error = null;
+
+        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            return '';
+        }
+
+        if (($file['error'] ?? UPLOAD_ERR_OK) !== UPLOAD_ERR_OK) {
+            $error = 'The file upload failed. Please try again.';
+            return false;
+        }
+
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            $error = 'The uploaded file could not be verified.';
+            return false;
+        }
+
+        if (($file['size'] ?? 0) > 5 * 1024 * 1024) {
+            $error = 'The file is too large. Upload a file under 5 MB.';
+            return false;
+        }
+
+        $allowedMimeTypes = [
+            'application/pdf' => ['pdf'],
+            'image/jpeg' => ['jpg', 'jpeg'],
+            'image/png' => ['png'],
+        ];
+
+        $extension = strtolower(pathinfo((string) ($file['name'] ?? ''), PATHINFO_EXTENSION));
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mimeType = (string) $finfo->file($file['tmp_name']);
+
+        if (!isset($allowedMimeTypes[$mimeType])) {
+            $error = 'Only PDF, JPG, JPEG, and PNG files are allowed.';
+            return false;
+        }
+
+        if (!in_array($extension, $allowedMimeTypes[$mimeType], true)) {
+            $error = 'The uploaded file type does not match its extension.';
+            return false;
+        }
+
+        $storageDir = getProjectDocumentStorageDir();
+        if (!is_dir($storageDir) && !mkdir($storageDir, 0775, true) && !is_dir($storageDir)) {
+            $error = 'The upload directory is not available.';
+            return false;
+        }
+
+        $storedExtension = $allowedMimeTypes[$mimeType][0];
+        $storedFileName = bin2hex(random_bytes(16)) . '.' . $storedExtension;
+        $destination = $storageDir . DIRECTORY_SEPARATOR . $storedFileName;
+
+        if (!move_uploaded_file($file['tmp_name'], $destination)) {
+            $error = 'The uploaded file could not be saved.';
+            return false;
+        }
+
+        return $storedFileName;
+    }
+}
+
+if (!function_exists('getProjectDocumentAbsolutePath')) {
+    function getProjectDocumentAbsolutePath($storedFileName)
+    {
+        $storedFileName = basename((string) $storedFileName);
+        if ($storedFileName === '') {
+            return null;
+        }
+
+        $candidatePaths = [
+            getProjectDocumentStorageDir() . DIRECTORY_SEPARATOR . $storedFileName,
+            getLegacyProjectDocumentStorageDir() . DIRECTORY_SEPARATOR . $storedFileName,
+        ];
+
+        foreach ($candidatePaths as $candidatePath) {
+            if (is_file($candidatePath)) {
+                return $candidatePath;
+            }
+        }
+
+        return null;
+    }
+}
+
+if (!function_exists('getProjectDocumentMimeType')) {
+    function getProjectDocumentMimeType($absolutePath)
+    {
+        if (!$absolutePath || !is_file($absolutePath)) {
+            return 'application/octet-stream';
+        }
+
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        return (string) ($finfo->file($absolutePath) ?: 'application/octet-stream');
+    }
+}
+
+if (!function_exists('canPublicCommentOnProject')) {
+    function canPublicCommentOnProject($conn, $userId, $projectId)
+    {
+        $userId = (int) $userId;
+        $projectId = (int) $projectId;
+
+        if ($userId <= 0 || $projectId <= 0) {
+            return false;
+        }
+
+        $stmt = $conn->prepare("
+            SELECT p.id
+            FROM projects p
+            JOIN users u ON u.id = ?
+            WHERE p.id = ?
+              AND LOWER(p.district) = LOWER(u.location)
+              AND p.status IN ('pending', 'approved')
+            LIMIT 1
+        ");
+
+        if (!$stmt) {
+            return false;
+        }
+
+        $stmt->bind_param("ii", $userId, $projectId);
+        $stmt->execute();
+
+        return $stmt->get_result()->num_rows > 0;
+    }
+}
+
+if (!function_exists('canPublicReactToComment')) {
+    function canPublicReactToComment($conn, $userId, $commentId)
+    {
+        $userId = (int) $userId;
+        $commentId = (int) $commentId;
+
+        if ($userId <= 0 || $commentId <= 0) {
+            return false;
+        }
+
+        $stmt = $conn->prepare("
+            SELECT pc.id
+            FROM project_comments pc
+            JOIN projects p ON p.id = pc.project_id
+            JOIN users u ON u.id = ?
+            WHERE pc.id = ?
+              AND LOWER(p.district) = LOWER(u.location)
+            LIMIT 1
+        ");
+
+        if (!$stmt) {
+            return false;
+        }
+
+        $stmt->bind_param("ii", $userId, $commentId);
+        $stmt->execute();
+
+        return $stmt->get_result()->num_rows > 0;
+    }
+}
+
 if (!function_exists('formatProjectCode')) {
     function formatProjectCode($projectId)
     {

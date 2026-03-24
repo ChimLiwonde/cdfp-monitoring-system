@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 /* SECURITY */
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
@@ -53,27 +53,28 @@ if ($project['status'] === 'approved') {
         <div class="form-card">
 
             <form action="update_project.php" method="POST">
-                <input type="hidden" name="id" value="<?php echo $project['id']; ?>">
+                <?= csrfInput('edit_project_form') ?>
+                <input type="hidden" name="id" value="<?= (int) $project['id'] ?>">
 
                 Title
-                <input type="text" name="title" value="<?php echo $project['title']; ?>" required>
+                <input type="text" name="title" value="<?= htmlspecialchars($project['title']) ?>" required>
 
                 Description
-                <input type="text" name="description" value="<?php echo $project['description']; ?>" required>
+                <input type="text" name="description" value="<?= htmlspecialchars($project['description']) ?>" required>
 
                 District
-                <input type="text" name="district" value="<?php echo $project['district']; ?>" required>
+                <input type="text" name="district" value="<?= htmlspecialchars($project['district']) ?>" required>
 
                 Project Location
-                <input type="text" name="location" value="<?php echo $project['location']; ?>" required>
+                <input type="text" name="location" value="<?= htmlspecialchars($project['location']) ?>" required>
 
                 Estimated Project Budget (MWK)
                 <input type="number" step="0.01" name="estimated_budget"
-                       value="<?php echo $project['estimated_budget']; ?>" required>
+                       value="<?= htmlspecialchars((string) $project['estimated_budget']) ?>" required>
 
                 Contractor Payment (MWK)
                 <input type="number" step="0.01" name="contractor_fee"
-                       value="<?php echo $project['contractor_fee']; ?>" required>
+                       value="<?= htmlspecialchars((string) $project['contractor_fee']) ?>" required>
 
                 <input type="submit" name="update_project" value="Update Project">
             </form>

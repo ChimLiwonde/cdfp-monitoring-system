@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../Pages/login.php");
@@ -36,7 +36,9 @@ if (!$comment) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (empty($_POST['admin_reply'])) {
+    if (!isValidCsrfToken('admin_reply_comment_form', $_POST['_csrf_token'] ?? '')) {
+        $error = "Your session expired. Please open the reply form again.";
+    } elseif (empty($_POST['admin_reply'])) {
         $error = "Reply cannot be empty";
     } else {
         $reply = trim($_POST['admin_reply']);
@@ -109,6 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST">
+                <?= csrfInput('admin_reply_comment_form') ?>
                 <label><strong>Admin Reply</strong></label>
                 <textarea name="admin_reply" required
                           placeholder="Write your reply here..."

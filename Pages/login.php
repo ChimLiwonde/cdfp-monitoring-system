@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 $message = "";
 
@@ -11,40 +11,43 @@ if (isset($_SESSION['role'])) {
 }
 
 if (isset($_POST['login'])) {
+    if (!isValidCsrfToken('login_form', $_POST['_csrf_token'] ?? '')) {
+        $message = "Your session expired. Please try logging in again.";
+    } else {
+        $username = trim($_POST['user_name']);
+        $password = trim($_POST['user_password']);
 
-    $username = trim($_POST['user_name']);
-    $password = trim($_POST['user_password']);
+        /* ============================
+           DATABASE USERS LOGIN
+        ============================ */
+        $stmt = $conn->prepare("
+            SELECT id, username, password, role 
+            FROM users 
+            WHERE username = ? OR email = ?
+            LIMIT 1
+        ");
+        $stmt->bind_param("ss", $username, $username);
+        $stmt->execute();
+        $result = $stmt->get_result();
 
-    /* ============================
-       DATABASE USERS LOGIN
-    ============================ */
-    $stmt = $conn->prepare("
-        SELECT id, username, password, role 
-        FROM users 
-        WHERE username = ? OR email = ?
-        LIMIT 1
-    ");
-    $stmt->bind_param("ss", $username, $username);
-    $stmt->execute();
-    $result = $stmt->get_result();
+        if ($user = $result->fetch_assoc()) {
 
-    if ($user = $result->fetch_assoc()) {
+            if (password_verify($password, $user['password'])) {
+                session_regenerate_id(true);
+                $_SESSION['user_id']  = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                $_SESSION['role']     = $user['role'];
 
-        if (password_verify($password, $user['password'])) {
+                header("Location: ../dashboards/home.php");
+                exit();
 
-            $_SESSION['user_id']  = $user['id'];
-            $_SESSION['username'] = $user['username'];
-            $_SESSION['role']     = $user['role'];
-
-            header("Location: ../dashboards/home.php");
-            exit();
+            } else {
+                $message = "Invalid username/email or password";
+            }
 
         } else {
             $message = "Invalid username/email or password";
         }
-
-    } else {
-        $message = "Invalid username/email or password";
     }
 }
 ?>
@@ -74,10 +77,11 @@ if (isset($_POST['login'])) {
             <p>Login once and the system will open the correct workspace for your role automatically.</p>
 
             <?php if ($message): ?>
-                <div class="msg"><?= $message ?></div>
+                <div class="msg"><?= htmlspecialchars($message) ?></div>
             <?php endif; ?>
 
             <form method="POST">
+                <?= csrfInput('login_form') ?>
                 <label>Username or Email</label>
                 <input type="text" name="user_name" required>
 

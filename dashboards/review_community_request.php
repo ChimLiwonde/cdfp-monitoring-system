@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../Pages/login.php");
@@ -43,29 +43,34 @@ if ($request['status'] !== 'pending') {
 }
 
 $reviewNotes = trim($_POST['review_notes'] ?? '');
+$error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $update = $conn->prepare("
-        UPDATE community_requests
-        SET status = 'reviewed', review_notes = ?, reviewed_by = ?, reviewed_at = NOW()
-        WHERE id = ?
-    ");
-    $adminUserId = (int) ($_SESSION['user_id'] ?? 0);
-    $update->bind_param("sii", $reviewNotes, $adminUserId, $request_id);
-    $update->execute();
+    if (!isValidCsrfToken('review_community_request_form', $_POST['_csrf_token'] ?? '')) {
+        $error = "Your session expired. Please open the review form again.";
+    } else {
+        $update = $conn->prepare("
+            UPDATE community_requests
+            SET status = 'reviewed', review_notes = ?, reviewed_by = ?, reviewed_at = NOW()
+            WHERE id = ?
+        ");
+        $adminUserId = (int) ($_SESSION['user_id'] ?? 0);
+        $update->bind_param("sii", $reviewNotes, $adminUserId, $request_id);
+        $update->execute();
 
-    createUserNotification(
-        $conn,
-        (int) $request['user_id'],
-        'community_request_reviewed',
-        'Community Request Reviewed',
-        "Your community request \"" . $request['title'] . "\" was reviewed." . ($reviewNotes !== '' ? "\n\nReview note:\n" . $reviewNotes : ''),
-        'public_requests.php'
-    );
+        createUserNotification(
+            $conn,
+            (int) $request['user_id'],
+            'community_request_reviewed',
+            'Community Request Reviewed',
+            "Your community request \"" . $request['title'] . "\" was reviewed." . ($reviewNotes !== '' ? "\n\nReview note:\n" . $reviewNotes : ''),
+            'public_requests.php'
+        );
 
-    $_SESSION['success_message'] = "Community request marked as reviewed.";
-    header("Location: admin_community_requests.php?status=reviewed");
-    exit();
+        $_SESSION['success_message'] = "Community request marked as reviewed.";
+        header("Location: admin_community_requests.php?status=reviewed");
+        exit();
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -91,7 +96,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <p><strong>Area:</strong> <?= htmlspecialchars($request['area']) ?></p>
             <p><strong>Description:</strong><br><?= nl2br(htmlspecialchars($request['description'])) ?></p>
 
+            <?php if ($error !== ''): ?>
+                <div class="msg error"><?= htmlspecialchars($error) ?></div>
+            <?php endif; ?>
+
             <form method="POST">
+                <?= csrfInput('review_community_request_form') ?>
                 <input type="hidden" name="id" value="<?= $request['id'] ?>">
 
                 <label>Review Note (Optional)</label>

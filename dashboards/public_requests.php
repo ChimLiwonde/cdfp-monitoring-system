@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'public') {
     header("Location: ../Pages/login.php");
@@ -10,6 +10,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'public') {
 
 $user_id = $_SESSION['user_id'];
 $message = "";
+$error = "";
 
 $userStmt = $conn->prepare("SELECT location FROM users WHERE id = ?");
 $userStmt->bind_param("i", $user_id);
@@ -36,27 +37,35 @@ $areasByDistrict = [
 $availableAreas = $areasByDistrict[$district] ?? [];
 
 if (isset($_POST['submit'])) {
-    $title = trim($_POST['title'] ?? '');
-    $desc = trim($_POST['description'] ?? '');
-    $area = trim($_POST['area'] ?? '');
+    if (!isValidCsrfToken('public_request_form', $_POST['_csrf_token'] ?? '')) {
+        $error = "Your session expired. Please submit the request again.";
+    } else {
+        $title = trim($_POST['title'] ?? '');
+        $desc = trim($_POST['description'] ?? '');
+        $area = trim($_POST['area'] ?? '');
 
-    $stmt = $conn->prepare("
-        INSERT INTO community_requests (user_id, district, area, title, description, status)
-        VALUES (?, ?, ?, ?, ?, 'pending')
-    ");
-    $stmt->bind_param("issss", $user_id, $district, $area, $title, $desc);
-    $stmt->execute();
+        if ($title === '' || $desc === '' || !in_array($area, $availableAreas, true)) {
+            $error = "Fill in the request form correctly before submitting.";
+        } else {
+            $stmt = $conn->prepare("
+                INSERT INTO community_requests (user_id, district, area, title, description, status)
+                VALUES (?, ?, ?, ?, ?, 'pending')
+            ");
+            $stmt->bind_param("issss", $user_id, $district, $area, $title, $desc);
+            $stmt->execute();
 
-    createRoleNotifications(
-        $conn,
-        'admin',
-        'community_request_submitted',
-        'New Community Request Submitted',
-        "{$title} was submitted from {$district} - {$area} and is waiting for review.",
-        'admin_community_requests.php?status=pending'
-    );
+            createRoleNotifications(
+                $conn,
+                'admin',
+                'community_request_submitted',
+                'New Community Request Submitted',
+                "{$title} was submitted from {$district} - {$area} and is waiting for review.",
+                'admin_community_requests.php?status=pending'
+            );
 
-    $message = "Request submitted successfully and awaiting review.";
+            $message = "Request submitted successfully and awaiting review.";
+        }
+    }
 }
 
 $requests = $conn->prepare("
@@ -91,7 +100,12 @@ $requests = $requests->get_result();
                 <div class="msg"><?= htmlspecialchars($message) ?></div>
             <?php endif; ?>
 
+            <?php if ($error): ?>
+                <div class="msg error"><?= htmlspecialchars($error) ?></div>
+            <?php endif; ?>
+
             <form method="POST">
+                <?= csrfInput('public_request_form') ?>
                 <label>Request Title</label>
                 <input type="text" name="title" required>
 

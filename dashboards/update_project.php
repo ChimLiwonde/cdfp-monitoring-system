@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 /* SECURITY */
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
@@ -9,16 +9,21 @@ if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
     exit();
 }
 
-if (isset($_POST['update_project'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_project'])) {
+    if (!isValidCsrfToken('edit_project_form', $_POST['_csrf_token'] ?? '')) {
+        $_SESSION['error_message'] = 'Your session expired. Please edit the project again.';
+        header("Location: my_projects.php");
+        exit();
+    }
 
     $user_id     = $_SESSION['user_id'];
-    $id          = $_POST['id'];
-    $title       = $_POST['title'];
-    $desc        = $_POST['description'];
-    $district    = $_POST['district'];
-    $location    = $_POST['location'];
-    $budget      = $_POST['estimated_budget'];
-    $contractFee = $_POST['contractor_fee'];
+    $id          = (int) ($_POST['id'] ?? 0);
+    $title       = trim($_POST['title'] ?? '');
+    $desc        = trim($_POST['description'] ?? '');
+    $district    = trim($_POST['district'] ?? '');
+    $location    = trim($_POST['location'] ?? '');
+    $budget      = (float) ($_POST['estimated_budget'] ?? 0);
+    $contractFee = (float) ($_POST['contractor_fee'] ?? 0);
 
     /* UPDATE ONLY OWN + PENDING PROJECT */
     $stmt = $conn->prepare("
