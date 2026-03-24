@@ -29,8 +29,10 @@ if ($user_id === (int) ($_SESSION['user_id'] ?? 0)) {
 
 $stmt = $conn->prepare("DELETE FROM users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
-$stmt->execute();
-
-$_SESSION['success_message'] = 'User deleted successfully.';
+if ($stmt->execute()) {
+    $_SESSION['success_message'] = 'User deleted successfully.';
+} else {
+    $_SESSION['error_message'] = 'This user could not be deleted because related records still depend on the account.';
+}
 header("Location: manage_users.php");
 exit();

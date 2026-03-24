@@ -8,6 +8,7 @@
 !/database/add_internal_collaboration.sql
 !/database/add_project_manager_role.sql
 !/database/add_notifications_and_review_notes.sql
+!/database/add_core_integrity_constraints.sql
 /uploads/*
 !/uploads/.gitkeep
 /private_uploads/*

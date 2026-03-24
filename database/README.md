@@ -20,7 +20,9 @@ Included helper scripts:
    Extends the `users.role` enum so the shared project workflow can support both field officers and project managers.
 5. `add_notifications_and_review_notes.sql`
    Adds in-app user notifications plus admin review-note fields for projects and community requests.
-6. `reset_demo_data.sql`
+6. `add_core_integrity_constraints.sql`
+   Converts the legacy core tables to InnoDB and adds the foreign keys used by the current workflow. Run this after the earlier feature migrations so all referenced tables already exist.
+7. `reset_demo_data.sql`
    Resets projects, project status items, comments, requests, maps, contractors, and activity history back to zero while keeping users.
-7. `seed_supervisor_demo.sql`
+8. `seed_supervisor_demo.sql`
    Loads a small demo dataset for supervisor review after a clean reset.

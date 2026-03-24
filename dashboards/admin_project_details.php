@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../Pages/login.php");
@@ -193,6 +193,8 @@ unset($_SESSION['success_message']);
 $project_budget_total = (float) $project['estimated_budget'] + (float) $project['contractor_fee'];
 $remaining_budget = $project_budget_total - (float) $totals['spent'];
 $remaining_to_allocate = $project_budget_total - (float) $totals['allocated'];
+$mapLat = normalizeCoordinate($project['latitude'] ?? null, -90, 90);
+$mapLng = normalizeCoordinate($project['longitude'] ?? null, -180, 180);
 $completed_items = 0;
 $active_items = 0;
 
@@ -352,7 +354,7 @@ foreach ($stages as $stage) {
                 </div>
             </div>
 
-            <?php if (!empty($project['latitude']) && !empty($project['longitude'])): ?>
+            <?php if ($mapLat !== null && $mapLng !== null): ?>
                 <div id="projectDetailMap"></div>
             <?php endif; ?>
 
@@ -565,14 +567,14 @@ foreach ($stages as $stage) {
 
 <?php include "footer.php"; ?>
 
-<?php if (!empty($project['latitude']) && !empty($project['longitude'])): ?>
+<?php if ($mapLat !== null && $mapLng !== null): ?>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-const map = L.map('projectDetailMap').setView([<?= json_encode($project['latitude']) ?>, <?= json_encode($project['longitude']) ?>], 13);
+const map = L.map('projectDetailMap').setView([<?= json_encode((float) $mapLat) ?>, <?= json_encode((float) $mapLng) ?>], 13);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
-L.marker([<?= json_encode($project['latitude']) ?>, <?= json_encode($project['longitude']) ?>]).addTo(map);
+L.marker([<?= json_encode((float) $mapLat) ?>, <?= json_encode((float) $mapLng) ?>]).addTo(map);
 </script>
 <?php endif; ?>
 

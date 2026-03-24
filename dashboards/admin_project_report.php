@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
     header("Location: ../Pages/login.php");
@@ -117,13 +117,15 @@ if ($report_type === 'financial') {
         }
         $overdue_item_count += (int) $row['overdue_items'];
 
-        if ($row['latitude'] && $row['longitude']) {
+        $mapLat = normalizeCoordinate($row['latitude'], -90, 90);
+        $mapLng = normalizeCoordinate($row['longitude'], -180, 180);
+        if ($mapLat !== null && $mapLng !== null) {
             $mapData[] = [
                 'title' => $row['title'],
                 'district' => $row['district'],
                 'location' => $row['location'],
-                'lat' => $row['latitude'],
-                'lng' => $row['longitude']
+                'lat' => (float) $mapLat,
+                'lng' => (float) $mapLng
             ];
         }
 

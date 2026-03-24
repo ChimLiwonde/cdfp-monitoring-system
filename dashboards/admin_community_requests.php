@@ -1,5 +1,6 @@
 <?php
-session_start();
+require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
 require "../config/db.php";
 
 /* ================= SECURITY ================= */
@@ -16,7 +17,7 @@ if (!in_array($status, $allowed_statuses, true)) {
     $status = 'all';
 }
 
-$sql = "
+$baseSql = "
 SELECT 
     cr.id,
     cr.title,
@@ -34,16 +35,22 @@ JOIN users u ON u.id = cr.user_id
 LEFT JOIN users reviewer ON reviewer.id = cr.reviewed_by
 ";
 
-if ($status !== 'all') {
-    $safe_status = $conn->real_escape_string($status);
-    $sql .= " WHERE cr.status = '{$safe_status}'";
+$result = false;
+$query_error = '';
+
+if ($status === 'all') {
+    $result = $conn->query($baseSql . " ORDER BY cr.created_at DESC");
+} else {
+    $stmt = $conn->prepare($baseSql . " WHERE cr.status = ? ORDER BY cr.created_at DESC");
+    if ($stmt) {
+        $stmt->bind_param("s", $status);
+        $stmt->execute();
+        $result = $stmt->get_result();
+    }
 }
 
-$sql .= " ORDER BY cr.created_at DESC";
-
-$result = $conn->query($sql);
 if (!$result) {
-    die("SQL ERROR: " . $conn->error);
+    $query_error = 'Community requests could not be loaded right now.';
 }
 
 $heading_map = [
@@ -52,8 +59,8 @@ $heading_map = [
     'reviewed' => 'Reviewed Community Requests'
 ];
 
-$success_message = $_SESSION['success_message'] ?? '';
-unset($_SESSION['success_message']);
+$success_message = pullSessionMessage('success_message');
+$error_message = pullSessionMessage('error_message');
 ?>
 
 <!DOCTYPE html>
@@ -80,6 +87,14 @@ unset($_SESSION['success_message']);
                 <div class="msg"><?= htmlspecialchars($success_message) ?></div>
             <?php endif; ?>
 
+            <?php if ($error_message): ?>
+                <div class="msg error"><?= htmlspecialchars($error_message) ?></div>
+            <?php endif; ?>
+
+            <?php if ($query_error): ?>
+                <div class="msg error"><?= htmlspecialchars($query_error) ?></div>
+            <?php endif; ?>
+
             <p>
                 <a href="admin_community_requests.php?status=all">All</a> |
                 <a href="admin_community_requests.php?status=pending">Pending</a> |
@@ -101,7 +116,7 @@ unset($_SESSION['success_message']);
                         <th>Action</th>
                     </tr>
 
-                    <?php if ($result->num_rows === 0): ?>
+                    <?php if (!$result || $result->num_rows === 0): ?>
                         <tr>
                             <td colspan="10" style="text-align:center;color:gray;">
                                 No community requests found
@@ -109,7 +124,7 @@ unset($_SESSION['success_message']);
                         </tr>
                     <?php endif; ?>
 
-                    <?php while ($row = $result->fetch_assoc()): ?>
+                    <?php while ($result && ($row = $result->fetch_assoc())): ?>
                         <tr>
                             <td><?= $row['id'] ?></td>
                             <td><?= htmlspecialchars($row['username']) ?></td>

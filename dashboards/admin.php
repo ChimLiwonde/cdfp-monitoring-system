@@ -1,9 +1,9 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] != 'admin') {
+if (($_SESSION['role'] ?? null) !== 'admin') {
     header("Location: ../Pages/login.php");
     exit();
 }

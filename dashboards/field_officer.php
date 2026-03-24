@@ -1,7 +1,7 @@
 <?php
-session_start();
-require "../config/db.php";
 require_once __DIR__ . '/../config/helpers.php';
+startSecureSession();
+require "../config/db.php";
 
 /* ======================= SECURITY ======================= */
 if (!isset($_SESSION['role']) || !isProjectLeadRole($_SESSION['role'])) {
@@ -176,8 +176,8 @@ $collaboration_message_count = $conn->query("
     WHERE p.created_by = $user_id
 ")->fetch_assoc()['total'];
 
-$success_message = $_SESSION['success_message'] ?? '';
-unset($_SESSION['success_message']);
+$success_message = pullSessionMessage('success_message');
+$error_message = pullSessionMessage('error_message');
 ?>
 <!DOCTYPE html>
 <html>
@@ -199,6 +199,12 @@ unset($_SESSION['success_message']);
 <?php if ($success_message): ?>
 <div class="form-card" style="margin-bottom:15px;">
     <div class="msg"><?= htmlspecialchars($success_message) ?></div>
+</div>
+<?php endif; ?>
+
+<?php if ($error_message): ?>
+<div class="form-card" style="margin-bottom:15px;">
+    <div class="msg error"><?= htmlspecialchars($error_message) ?></div>
 </div>
 <?php endif; ?>
 
